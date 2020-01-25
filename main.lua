@@ -310,11 +310,10 @@ local EVENT_FRAME = CreateFrame("FRAME", nil, UIParent);
 EVENT_FRAME:RegisterEvent("CHAT_MSG_ADDON");
 C_ChatInfo.RegisterAddonMessagePrefix("AJDKP");
 EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
-    local _, message, distribution, sender = ...;
+    local prefix, message, distribution, sender = ...;
     local msg_type = message:sub(1, 2)
     if msg_type == "00" then
         for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
-            print(string.format("auction starting for %s (%s)", item_link, item_link:sub("|", "||")));
             ajdkp.HandleStartAuction(auction_id, item_link, sender);
         end
     elseif msg_type == "01" then
