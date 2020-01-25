@@ -1,7 +1,7 @@
 local _, ajdkp = ...
 
 ajdkp.CONSTANTS = {};
-ajdkp.CONSTANTS.AUCTION_DURATION = 50; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
+ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
 -- bid priorities
 ajdkp.CONSTANTS.MS_OVER_OS = 1;
@@ -46,8 +46,6 @@ local function StartAuction(item_link)
 
     SendChatMessage(string.format("Auction open for %s", auction.item_link) ,"RAID_WARNING");
     ajdkp.SendStartAuction(auction_id, item_link);
-    local name, _ = UnitName("player");
-    ajdkp.HandleStartAuction(auction_id, item_link, name);
 end
 
 local function ReadyToResolve(auction_id)
