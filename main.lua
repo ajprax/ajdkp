@@ -102,10 +102,10 @@ function ajdkp.DetermineWinner(auction_id)
         if ajdkp.CONSTANTS.PRIORITY_TYPE == ajdkp.CONSTANTS.MS_OVER_OS then
             local first_spec, first_amt, first_character = unpack(auction.bids[1]);
             local second_spec, second_amt, _ = unpack(auction.bids[2]);
-            if not first_spec == second_spec then
+            if not (first_spec == second_spec) then
                 -- MS trumps OS so first bidder wins for the minimum
                 return {first_spec, ajdkp.CONSTANTS.MINIMUM_BID, first_character }
-            elseif not first_amt == second_amt then
+            elseif not (first_amt == second_amt) then
                 -- specs are the same, but bid amounts are different so give it to the highest bidder
                 return {first_spec, second_amt, first_character }
             else
@@ -125,7 +125,7 @@ function ajdkp.DetermineWinner(auction_id)
         elseif ajdkp.CONSTANTS.PRIORITY_TYPE == ajdkp.CONSTANTS.TWO_TO_ONE then
             local first_bid_weight = ajdkp.BidWeight(auction.bids[1]);
             local second_bid_weight = ajdkp.BidWeight(auction.bids[2]);
-            if not first_bid_weight == second_bid_weight then
+            if not (first_bid_weight == second_bid_weight) then
                 -- single highest bid weight wins; pays second bid amount reweighted to highest bidder's spec
                 -- examples
                 --   1, 100, a
