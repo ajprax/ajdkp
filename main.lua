@@ -327,7 +327,7 @@ end);
 
 
 
-SLASH_AJDKP1 = "/d"
+SLASH_AJDKP1 = "/auction"
 SlashCmdList["AJDKP"] = function(msg)
     for link in string.gmatch(msg, ".-|h|r") do
         StartAuction(link);
