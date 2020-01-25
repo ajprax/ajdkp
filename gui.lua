@@ -86,8 +86,18 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
     if bid_frame then
         -- this may not be the same actual auction, so update the icon texture and name
         local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
-        _G[string.format("BidFrame%dTitle", auction_id)]:SetText(name);
-        _G[string.format("BidFrame%dIconFrameTexture")]:SetTexture(GetItemIcon(id));
+        local title = _G[string.format("BidFrame%dTitle", auction_id)];
+        if title then
+            title:SetText(name);
+        else
+            CreateTitleText(bid_frame, name);
+        end
+        local texture = _G[string.format("BidFrame%dIconFrameTexture")];
+        if texture then
+            texture:SetTexture(GetItemIcon(id));
+        else
+            CreateItemIcon(bid_frame, item_link, GetItemIcon(id));
+        end
         -- if a bid is rejected the old frame will be sitting around ready to reuse
         bid_frame:Show();
     else
