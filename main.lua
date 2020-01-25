@@ -72,6 +72,20 @@ function ajdkp.DeclareWinner(auction_id)
     end
     if character then
         SendChatMessage(string.format("%s wins %s for %d dkp (%s)", character, auction.item_link, amt, spec) ,"RAID");
+        -- go through all open auctions and make sure the winner of this auction hasn't bid more than their new dkp
+        -- if they have, lower their bid to their new dkp (we presume they'd still be willing to bid that much since
+        -- it's less than they've previously said they were willing to pay)
+        local winners_new_dkp = ajdkp.GetDKP(character) - amt;
+        for _, auction in ipairs(ajdkp.AUCTIONS) do
+            if auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS or auction.state == ajdkp.CONSTANTS.READY_TO_RESOLVE then
+                for _, bid in ipairs(auction.bids) do
+                    local _, bid_amt, bid_character = unpack(bid);
+                    if bid_character == character and bid_amt > winners_new_dkp then
+                        bid[2] = winners_new_dkp;
+                    end
+                end
+            end
+        end
         SOTA_Call_SubtractPlayerDKP(character, amt);
         ajdkp.AUCTIONS[auction_id].state = ajdkp.CONSTANTS.COMPLETE;
         _G[string.format("MLFrame%dDeclareWinnerButton", auction_id)]:SetText(string.format("%s wins!", character));
@@ -323,8 +337,6 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
         ajdkp.HandlePass(auction_id, sender);
     end
 end);
-
-
 
 
 SLASH_AJDKP1 = "/auction"
