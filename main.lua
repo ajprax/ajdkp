@@ -177,8 +177,10 @@ function ajdkp.RejectBid(auction_id, character)
 end
 
 function ajdkp.CancelAuction(auction_id)
-    ajdkp.AUCTIONS[auction_id].state = ajdkp.CONSTANTS.CANCELED;
+    local auction = ajdkp.AUCTIONS[auction_id];
+    auction.state = ajdkp.CONSTANTS.CANCELED;
     ajdkp.SendCancelAuction(auction_id);
+    ajdkp.HandleCancelAuction(auction_id, auction.item_link);
 end
 
 -- Messages
@@ -261,11 +263,12 @@ function ajdkp.HandleRejectBid(auction_id)
 end
 
 function ajdkp.SendCancelAuction(auction_id)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("04 %d", auction_id), "RAID");
-    ajdkp.HandleCancelAuction(auction_id);
+    local auction = ajdkp.AUCTIONS[auction_id];
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("04 %d %s", auction_id, auction.item_link), "RAID");
 end
 
-function ajdkp.HandleCancelAuction(auction_id)
+function ajdkp.HandleCancelAuction(auction_id, item_link)
+    print(string.format("auction for %s canceled by master looter", item_link));
     local bid_frame = _G[string.format("BidFrame%d", auction_id)];
     if bid_frame then
         bid_frame:Hide();
@@ -309,6 +312,7 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
     local msg_type = message:sub(1, 2)
     if msg_type == "00" then
         for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
+            print(string.format("auction starting for %s (%s)", item_link, item_link:sub("|", "||")));
             ajdkp.HandleStartAuction(auction_id, item_link, sender);
         end
     elseif msg_type == "01" then
@@ -323,8 +327,9 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
         local auction_id = tonumber(message:sub(4));
         ajdkp.HandleRejectBid(auction_id);
     elseif msg_type == "04" then
-        local auction_id = tonumber(message:sub(4));
-        ajdkp.HandleCancelAuction(auction_id);
+        for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
+            ajdkp.HandleCancelAuction(auction_id, item_link);
+        end
     elseif msg_type == "05" then
         ajdkp.HandleCheckAuctions(sender);
     elseif msg_type == "06" then
@@ -342,10 +347,11 @@ SlashCmdList["AJDKP"] = function(msg)
 end
 
 -- Send a CheckAuctions message on startup in case there are any running
-ajdkp.SendCheckAuctions();
+ajdkp.SendCheckAuctions(); -- TODO try to delay this
 
 
 -- TODO: create a frame pool and position the frames based on how many frames are being opened simultaneously
 -- TODO: recognize if there are two of the same item being auctioned and show just one window and give them to the two highest
 -- TODO: if multiple people start auctions the ids may conflict
 -- TODO: disable bidding on items the user can't equip
+-- TODO: auction icons don't show up properly if they haven't been loaded in that client yet
