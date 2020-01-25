@@ -1,5 +1,14 @@
 local _, ajdkp = ...
 
+local function ColorGradient(perc)
+    if perc >= 1 then
+        return 0, 1, 0
+    elseif perc <= 0 then
+        return 1, 0, 0
+    end
+    return 1-perc, perc, 0
+end
+
 local function MakeTexture(texture_id, frame, hide)
     local texture = frame:CreateTexture();
     texture:SetTexture(texture_id);
@@ -146,8 +155,9 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
     function bid_frame:OnUpdate(sinceLastUpdate)
         remaining_time = remaining_time - sinceLastUpdate;
         local remaining_seconds = math.ceil(remaining_time);
-        -- TODO: change the color based on the remaining time
-        _G[string.format("BidFrame%dCountdownBar", auction_id)]:SetValue(remaining_seconds);
+        local countdown_bar = _G[string.format("BidFrame%dCountdownBar", auction_id)];
+        countdown_bar:SetValue(remaining_seconds);
+        countdown_bar:SetStatusBarColor(ColorGradient(remaining_time / (ajdkp.CONSTANTS.AUCTION_DURATION - 10)));
         if remaining_seconds <= 0 then
             ajdkp.SendPass(auction_id, master_looter);
             bid_frame:Hide();
@@ -262,8 +272,9 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
         -- Update the time remaining
         auction.remaining_time = auction.remaining_time - sinceLastUpdate;
         local remaining_seconds = math.ceil(auction.remaining_time);
-        -- TODO: change the color based on the remaining time
-        _G[string.format("MLFrame%dCountdownBar", auction_id)]:SetValue(remaining_seconds);
+        local countdown_bar = _G[string.format("MLFrame%dCountdownBar", auction_id)];
+        countdown_bar:SetValue(remaining_seconds);
+        countdown_bar:SetStatusBarColor(ColorGradient(auction.remaining_time / ajdkp.CONSTANTS.AUCTION_DURATION));
         if remaining_seconds <= 0 then
             if auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
                 auction.state = ajdkp.CONSTANTS.READY_TO_RESOLVE
