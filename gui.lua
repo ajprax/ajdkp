@@ -38,7 +38,7 @@ local function CreateCountdownBar(frame, width, remaining_time, max_time)
     return statusbar
 end
 
-local function CreateItemIcon(bid_frame, texture)
+local function CreateItemIcon(bid_frame, item_link, texture)
     local icon_frame = CreateFrame("FRAME", "IconFrame", bid_frame);
     icon_frame:SetHeight(36);
     icon_frame:SetWidth(36);
@@ -96,8 +96,8 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
         )
         -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
         CreateCountdownBar(bid_frame, 160, remaining_time, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
-        local _, _, _, _, id, _, _, _, _, _, _, _, _, name = string.find(item_link, "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*):?(%-?%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?");
-        CreateItemIcon(bid_frame, GetItemIcon(id));
+        local _, _, id, name = string.find(item_link, ".*item:(%d+).-|?h?%[?(.-)%]?|?h?|?r?");
+        CreateItemIcon(bid_frame, item_link, GetItemIcon(id));
         CreateTitleText(bid_frame, name);
         CreateCurrentDKPText(bid_frame);
     end
@@ -175,8 +175,8 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
     local x_offset = ((auction_id % 4) - 1.5) * 300
     ml_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
     CreateCountdownBar(ml_frame, ml_frame:GetWidth() - 8, ajdkp.CONSTANTS.AUCTION_DURATION, ajdkp.CONSTANTS.AUCTION_DURATION);
-    local _, _, _, _, id, _, _, _, _, _, _, _, _, name = string.find(item_link, "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*):?(%-?%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?");
-    CreateItemIcon(ml_frame, GetItemIcon(id));
+    local _, _, id, name = string.find(item_link, ".*item:(%d+).-|?h?%[?(.-)%]?|?h?|?r?");
+    CreateItemIcon(ml_frame, item_link, GetItemIcon(id));
     CreateTitleText(ml_frame, name);
     CreateBidListFrame(ml_frame);
     local close_button = ajdkp.GetCloseButton(ml_frame);
