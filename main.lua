@@ -27,7 +27,7 @@ ajdkp.CONSTANTS.CANCELED = 4;
 -- }
 ajdkp.AUCTIONS = {};
 
-local NEXT_AUCTION_ID = 0;
+local NEXT_AUCTION_ID = 1;
 
 local function StartAuction(item_link)
     local auction_id = NEXT_AUCTION_ID;
@@ -284,7 +284,7 @@ function ajdkp.HandleCheckAuctions(target)
     for auction_id=1,NEXT_AUCTION_ID do
         local auction = ajdkp.AUCTIONS[auction_id];
         -- only send ResumeAuction if the user hasn't already bid
-        if auction and ajdkp.Contains(auction.outstanding, ajdkp.StripRealm(target)) then
+        if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS and ajdkp.Contains(auction.outstanding, ajdkp.StripRealm(target)) then
             -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
             ajdkp.SendResumeAuction(auction_id, auction.item_link, auction.remaining_time - 10, target);
         end

@@ -56,6 +56,7 @@ local function CreateItemIcon(bid_frame, item_link)
         tooltip_frame:SetHyperlink(item_link);
         tooltip_frame:SetScript("OnTooltipSetItem", function()
             if GetItemInfo(item_link) then
+                tooltip_frame:SetScript("OnTooltipSetItem", nil);
                 local name, link, quality, iLevel, reqLevel, type, subType, maxStack, equipSlot, texture = GetItemInfo(item_link);
                 icon_texture:SetTexture(texture);
                 _G[string.format("%sTitle", bid_frame:GetName())]:SetText(name);
@@ -113,8 +114,8 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
         )
         -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
         CreateCountdownBar(bid_frame, 160, remaining_time, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
-        CreateItemIcon(bid_frame, item_link);
         CreateTitleText(bid_frame, item_link);
+        CreateItemIcon(bid_frame, item_link);
         CreateCurrentDKPText(bid_frame);
     end
 
@@ -191,8 +192,8 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
     local x_offset = ((auction_id % 4) - 1.5) * 300
     ml_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
     CreateCountdownBar(ml_frame, ml_frame:GetWidth() - 8, ajdkp.CONSTANTS.AUCTION_DURATION, ajdkp.CONSTANTS.AUCTION_DURATION);
-    CreateItemIcon(ml_frame, item_link);
     CreateTitleText(ml_frame, item_link);
+    CreateItemIcon(ml_frame, item_link);
     CreateBidListFrame(ml_frame);
     local close_button = ajdkp.GetCloseButton(ml_frame);
     close_button:SetScript("OnClick", function()
