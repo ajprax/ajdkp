@@ -38,32 +38,15 @@ local function CreateCountdownBar(frame, width, remaining_time, max_time)
     return statusbar
 end
 
-local function CreateItemIcon(bid_frame, item_link)
+local function CreateItemIcon(bid_frame, texture)
     local icon_frame = CreateFrame("FRAME", "IconFrame", bid_frame);
     icon_frame:SetHeight(36);
     icon_frame:SetWidth(36);
-    local icon_texture = MakeTexture(select(10, GetItemInfo(item_link)), icon_frame);
+    local icon_texture = MakeTexture(texture, icon_frame);
     icon_frame.texture = icon_texture;
     icon_frame:SetPoint("TOPLEFT", bid_frame, "TOPLEFT", 10, -33);
 
     local tooltip_frame = _G[string.format("%sTooltip", bid_frame:GetName())];
-
-    -- if the linked item hasn't been loaded yet in this client GetItemInfo will return nil and the frame will have no
-    -- title or icon texture. setting it as the hyperlink on a tooltip with force the load and then we can set the
-    -- texture and title.
-    if not GetItemInfo(item_link) then
-        tooltip_frame:SetOwner(UIParent, "ANCHOR_NONE");
-        tooltip_frame:SetHyperlink(item_link);
-        tooltip_frame:SetScript("OnTooltipSetItem", function()
-            if GetItemInfo(item_link) then
-                tooltip_frame:SetScript("OnTooltipSetItem", nil);
-                local name, link, quality, iLevel, reqLevel, type, subType, maxStack, equipSlot, texture = GetItemInfo(item_link);
-                icon_texture:SetTexture(texture);
-                _G[string.format("%sTitle", bid_frame:GetName())]:SetText(name);
-            end
-        end);
-    end
-
     local function ShowItemTooltip()
         tooltip_frame:SetOwner(UIParent, "ANCHOR_NONE");
         tooltip_frame:SetPoint("BOTTOMRIGHT", icon_frame, "TOPLEFT");
@@ -77,8 +60,7 @@ local function CreateItemIcon(bid_frame, item_link)
     icon_frame:SetScript("OnLeave", HideTooltip);
 end
 
-local function CreateTitleText(bid_frame, item_link)
-    local item_name = select(1, GetItemInfo(item_link));
+local function CreateTitleText(bid_frame, item_name)
     local title = bid_frame:CreateFontString("%parentTitle", "BACKGROUND", "ChatFontNormal");
     title:SetFont("Fonts\\FRIZQT__.TTF", 12);
     title:SetText(item_name);
@@ -114,8 +96,9 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
         )
         -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
         CreateCountdownBar(bid_frame, 160, remaining_time, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
-        CreateTitleText(bid_frame, item_link);
-        CreateItemIcon(bid_frame, item_link);
+        local _, _, _, _, id, _, _, _, _, _, _, _, _, name = string.find(item_link, "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*):?(%-?%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?");
+        CreateItemIcon(bid_frame, GetItemIcon(id));
+        CreateTitleText(bid_frame, name);
         CreateCurrentDKPText(bid_frame);
     end
 
@@ -192,8 +175,9 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
     local x_offset = ((auction_id % 4) - 1.5) * 300
     ml_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
     CreateCountdownBar(ml_frame, ml_frame:GetWidth() - 8, ajdkp.CONSTANTS.AUCTION_DURATION, ajdkp.CONSTANTS.AUCTION_DURATION);
-    CreateTitleText(ml_frame, item_link);
-    CreateItemIcon(ml_frame, item_link);
+    local _, _, _, _, id, _, _, _, _, _, _, _, _, name = string.find(item_link, "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*):?(%-?%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?");
+    CreateItemIcon(ml_frame, GetItemIcon(id));
+    CreateTitleText(ml_frame, name);
     CreateBidListFrame(ml_frame);
     local close_button = ajdkp.GetCloseButton(ml_frame);
     close_button:SetScript("OnClick", function()
