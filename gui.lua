@@ -48,6 +48,21 @@ local function CreateItemIcon(bid_frame, item_link)
 
     local tooltip_frame = _G[string.format("%sTooltip", bid_frame:GetName())];
 
+    -- if the linked item hasn't been loaded yet in this client GetItemInfo will return nil and the frame will have no
+    -- title or icon texture. setting it as the hyperlink on a tooltip with force the load and then we can set the
+    -- texture and title.
+    if not GetItemInfo(item_link) then
+        tooltip_frame:SetOwner(UIParent, "ANCHOR_NONE");
+        tooltip_frame:SetHyperlink(item_link);
+        tooltip_frame:SetScript("OnTooltipSetItem", function()
+            if GetItemInfo(item_link) then
+                local name, link, quality, iLevel, reqLevel, type, subType, maxStack, equipSlot, texture = GetItemInfo(item_link);
+                icon_texture:SetTexture(texture);
+                _G[string.format("%sTitle", bid_frame:GetName())]:SetText(name);
+            end
+        end);
+    end
+
     local function ShowItemTooltip()
         tooltip_frame:SetOwner(UIParent, "ANCHOR_NONE");
         tooltip_frame:SetPoint("BOTTOMRIGHT", icon_frame, "TOPLEFT");
@@ -63,19 +78,11 @@ end
 
 local function CreateTitleText(bid_frame, item_link)
     local item_name = select(1, GetItemInfo(item_link));
-
-    local title = bid_frame:CreateFontString(nil, "BACKGROUND", "ChatFontNormal");
---    title:SetFont("Fonts\\FRIZQT__.TTF", 12);
+    local title = bid_frame:CreateFontString("%parentTitle", "BACKGROUND", "ChatFontNormal");
+    title:SetFont("Fonts\\FRIZQT__.TTF", 12);
     title:SetText(item_name);
     title:SetPoint("TOPLEFT", bid_frame, "TOPLEFT", 5, -5);
 end
---
---local function CreateMaxBidText(bid_frame)
---    local current_dkp_text = bid_frame:CreateFontString(nil, "BACKGROUND", "ChatFontNormal");
---    current_dkp_text:SetFont("Fonts\\FRIZQT__.TTF", 12);
---    current_dkp_text:SetText("max bid:");
---    current_dkp_text:SetPoint("TOPLEFT", bid_frame, "TOPLEFT", 55, -51);
---end
 
 local function CreateCurrentDKPText(bid_frame)
     local current_dkp_text = bid_frame:CreateFontString(string.format("%sCurrentDKP", bid_frame:GetName()), "BACKGROUND", "ChatFontNormal");

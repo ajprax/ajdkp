@@ -44,6 +44,7 @@ local function StartAuction(item_link)
 
     ajdkp.CreateMLFrame(auction_id, item_link);
 
+    SendChatMessage(string.format("Auction open for %s", auction.item_link) ,"RAID_WARNING");
     ajdkp.SendStartAuction(auction_id, item_link);
     local name, _ = UnitName("player");
     ajdkp.HandleStartAuction(auction_id, item_link, name);
@@ -179,8 +180,9 @@ end
 function ajdkp.CancelAuction(auction_id)
     local auction = ajdkp.AUCTIONS[auction_id];
     auction.state = ajdkp.CONSTANTS.CANCELED;
+    SendChatMessage(string.format("Auction canceled for %s", auction.item_link), "RAID");
     ajdkp.SendCancelAuction(auction_id);
-    ajdkp.HandleCancelAuction(auction_id, auction.item_link);
+    ajdkp.HandleCancelAuction(auction_id);
 end
 
 -- Messages
@@ -267,8 +269,7 @@ function ajdkp.SendCancelAuction(auction_id)
     C_ChatInfo.SendAddonMessage("AJDKP", string.format("04 %d %s", auction_id, auction.item_link), "RAID");
 end
 
-function ajdkp.HandleCancelAuction(auction_id, item_link)
-    print(string.format("auction for %s canceled by master looter", item_link));
+function ajdkp.HandleCancelAuction(auction_id)
     local bid_frame = _G[string.format("BidFrame%d", auction_id)];
     if bid_frame then
         bid_frame:Hide();
@@ -354,4 +355,3 @@ ajdkp.SendCheckAuctions(); -- TODO try to delay this
 -- TODO: recognize if there are two of the same item being auctioned and show just one window and give them to the two highest
 -- TODO: if multiple people start auctions the ids may conflict
 -- TODO: disable bidding on items the user can't equip
--- TODO: auction icons don't show up properly if they haven't been loaded in that client yet
