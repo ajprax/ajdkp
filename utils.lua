@@ -1,11 +1,29 @@
 local _, ajdkp = ...
 
+function ajdkp.Contains(array, item)
+    for _, e in ipairs(array) do
+        if item == e then
+            return true
+        end
+    end
+    return false
+end
+
+function ajdkp.Remove(array, item)
+    for i, e in ipairs(array) do
+        if item == e then
+            table.remove(array, i);
+            break
+        end
+    end
+end
+
 function ajdkp.GetRaidMembers()
     local out = {};
     for i=1,40 do
         local name, rank, subgroup, level, class, fileName, zone, online, isDead, role, isML = GetRaidRosterInfo(i);
         if name then
-            out[i] = name;
+            table.insert(out, name);
         end
     end
     return out

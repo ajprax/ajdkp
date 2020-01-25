@@ -22,7 +22,7 @@ ajdkp.CONSTANTS.CANCELED = 4;
 --   state: 1|2|3, -- auction states are listed above
 --   item_link: "...", -- printable link to the item being auctioned
 --   remaining_time: 123, -- number of seconds remaining in the auction (may include partial seconds, bidders see this number - 10)
---   responded: {}, -- keys are character names, values are whether that character has bid or passed
+--   outstanding: {}, -- keys are character names, values are whether that character has bid or passed
 --   bids: {}, -- bids are (spec, amount, character) sorted
 -- }
 ajdkp.AUCTIONS = {};
@@ -37,7 +37,7 @@ local function StartAuction(item_link)
         state=ajdkp.CONSTANTS.ACCEPTING_BIDS,
         item_link=item_link,
         remaining_time=ajdkp.CONSTANTS.AUCTION_DURATION,
-        responded=ajdkp.GetRaidMembers(),
+        outstanding=ajdkp.GetRaidMembers(),
         bids={},
     };
     ajdkp.AUCTIONS[auction_id] = auction;
@@ -54,12 +54,7 @@ local function ReadyToResolve(auction_id)
     if auction.remaining_time <= 0 then
         return true
     end
-    for _, ready in ipairs(auction.responded) do
-        if not ready then
-            return false
-        end
-    end
-    return true
+    return #auction.outstanding == 0
 end
 
 function ajdkp.DeclareWinner(auction_id)
@@ -168,7 +163,7 @@ end
 function ajdkp.RejectBid(auction_id, character)
     local auction = ajdkp.AUCTIONS[auction_id];
     if auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS or auction.state == ajdkp.CONSTANTS.READY_TO_RESOLVE then
-        auction.responded[character] = false;
+        table.insert(auction.outstanding, character);
         auction.state = ajdkp.CONSTANTS.ACCEPTING_BIDS;
         for i, bid in ipairs(auction.bids) do
             local _, _, bidder = unpack(bid);
@@ -250,7 +245,7 @@ function ajdkp.HandlePlaceBid(auction_id, spec, amt, character)
             -- TODO: some kind of error
         end
         ajdkp.InsertNewBid(auction.bids, {spec, amt, character}, sort);
-        auction.responded[character] = true;
+        ajdkp.Remove(auction.outstanding, character);
         if ReadyToResolve(auction_id) then
             auction.state = ajdkp.CONSTANTS.READY_TO_RESOLVE;
         end
@@ -284,7 +279,7 @@ end
 function ajdkp.HandleCheckAuctions(target)
     for auction_id, auction in ipairs(ajdkp.AUCTIONS) do
         -- only send ResumeAuction if the user hasn't already bid
-        if not auction.responded[target] then
+        if ajdkp.Contains(auction.outstanding, target) then
             -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
             ajdkp.SendResumeAuction(auction_id, auction.item_link, auction.remaining_time - 10, target);
         end
@@ -298,7 +293,7 @@ end
 function ajdkp.HandlePass(auction_id, character)
     local auction = ajdkp.AUCTIONS[auction_id];
     if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
-        auction.responded[character] = true;
+        ajdkp.Remove(auction.outstanding, character);
         if ReadyToResolve(auction_id) then
             auction.state = ajdkp.CONSTANTS.READY_TO_RESOLVE;
         end
