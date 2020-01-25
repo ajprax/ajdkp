@@ -96,7 +96,7 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
         )
         -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
         CreateCountdownBar(bid_frame, 160, remaining_time, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
-        local _, _, id, name = string.find(item_link, ".*item:(%d+).-|?h?%[?(.-)%]?|?h?|?r?");
+        local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
         CreateItemIcon(bid_frame, item_link, GetItemIcon(id));
         CreateTitleText(bid_frame, name);
         CreateCurrentDKPText(bid_frame);
@@ -175,7 +175,7 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
     local x_offset = ((auction_id % 4) - 1.5) * 300
     ml_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
     CreateCountdownBar(ml_frame, ml_frame:GetWidth() - 8, ajdkp.CONSTANTS.AUCTION_DURATION, ajdkp.CONSTANTS.AUCTION_DURATION);
-    local _, _, id, name = string.find(item_link, ".*item:(%d+).-|?h?%[?(.-)%]?|?h?|?r?");
+    local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
     CreateItemIcon(ml_frame, item_link, GetItemIcon(id));
     CreateTitleText(ml_frame, name);
     CreateBidListFrame(ml_frame);
