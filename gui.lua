@@ -83,8 +83,6 @@ end
 
 function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_time)
     local player = ajdkp.StripRealm(UnitName("player"));
-
-
     local bid_frame = _G[string.format("BidFrame%d", auction_id)];
     if bid_frame then
         -- if a bid is rejected the old frame will be sitting around ready to reuse
@@ -103,6 +101,9 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
         CreateTitleText(bid_frame, item_link);
         CreateCurrentDKPText(bid_frame);
     end
+
+    local x_offset = ((auction_id % 4) - 1.5) * 200
+    bid_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -150);
 
     local bid_input = _G[string.format("BidFrame%dBidAmount", auction_id)];
     local ms_button = _G[string.format("BidFrame%dMSButton", auction_id)];
@@ -170,6 +171,8 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
         UIParent,
         "MLFrameTemplate"
     );
+    local x_offset = ((auction_id % 4) - 1.5) * 300
+    ml_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
     CreateCountdownBar(ml_frame, ml_frame:GetWidth() - 8, ajdkp.CONSTANTS.AUCTION_DURATION, ajdkp.CONSTANTS.AUCTION_DURATION);
     CreateItemIcon(ml_frame, item_link);
     CreateTitleText(ml_frame, item_link);
