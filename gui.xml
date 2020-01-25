@@ -1,0 +1,100 @@
+<Ui>
+    <Frame
+            name="MLFrameTemplate"
+            parent="UIParent"
+            movable="true"
+            virtual="true"
+            inherits="BasicFrameTemplate"
+    >
+        <Size x="240" y="128"/>
+        <Anchors>
+            <Anchor point="CENTER" y="-300"/>
+        </Anchors>
+
+        <Frames>
+            <GameTooltip name="$parentTooltip" inherits="GameTooltipTemplate"/>
+
+            <Button name="$parentDeclareWinnerButton" text="Declare Winner" inherits="UIPanelButtonTemplate">
+                <Size x="220" y="20"/>
+                <Anchors>
+                    <Anchor point="BOTTOMRIGHT" x="-10" y="20"/>
+                </Anchors>
+            </Button>
+        </Frames>
+
+        <Scripts>
+            <OnLoad>self:RegisterForDrag("LeftButton");</OnLoad>
+            <OnDragStart>self:StartMoving();</OnDragStart>
+            <OnDragStop>self:StopMovingOrSizing();</OnDragStop>
+        </Scripts>
+    </Frame>
+
+    <Frame
+        name="BidFrameTemplate"
+        parent="UIParent"
+        movable="true"
+        enableMouse="true"
+        virtual="true"
+        inherits="BasicFrameTemplate"
+    >
+        <Size x="168" y="90"/>
+        <Anchors>
+            <Anchor point="CENTER" y="-300"/>
+        </Anchors>
+
+        <Frames>
+            <GameTooltip name="$parentTooltip" inherits="GameTooltipTemplate"/>
+
+            <EditBox name="$parentBidAmount" letters="4" autofocus="false" numeric="true">
+                <Size x="45" y="20"/>
+                <Anchors>
+                    <Anchor point="TOPRIGHT">
+                        <Offset x="-60" y="-28"/>
+                    </Anchor>
+                </Anchors>
+                <FontString inherits="ChatFontNormal" />
+                <Layers>
+                    <Layer level="BACKGROUND">
+                        <Texture file="Interface\ChatFrame\UI-ChatInputBorder-Left">
+                            <Size x="30" y="20" />
+                            <Anchors>
+                                <Anchor point="LEFT">
+                                    <Offset x="-10"/>
+                                </Anchor>
+                            </Anchors>
+                            <TexCoords left="0" right="0.16" top="0" bottom="1.0"/>
+                        </Texture>
+                        <Texture file="Interface\ChatFrame\UI-ChatInputBorder-Right">
+                            <Size x="30" y="20"/>
+                            <Anchors>
+                                <Anchor point="RIGHT">
+                                    <Offset x="-4"/>
+                                </Anchor>
+                            </Anchors>
+                            <TexCoords left="0.88" right="1.0" top="0" bottom="1.0"/>
+                        </Texture>
+                    </Layer>
+                </Layers>
+            </EditBox>
+
+            <Button name="$parentMSButton" text="MS" inherits="UIPanelButtonTemplate">
+                <Size x="50" y="20"/>
+                <Anchors>
+                    <Anchor point="BOTTOMRIGHT" x="-64" y="20"/>
+                </Anchors>
+            </Button>
+            <Button name="$parentOSButton" text="OS" inherits="UIPanelButtonTemplate">
+                <Size x="50" y="20"/>
+                <Anchors>
+                    <Anchor point="BOTTOMRIGHT" x="-10" y="20"/>
+                </Anchors>
+            </Button>
+        </Frames>
+
+        <Scripts>
+            <OnLoad>self:RegisterForDrag("LeftButton");</OnLoad>
+            <OnDragStart>self:StartMoving();</OnDragStart>
+            <OnDragStop>self:StopMovingOrSizing();</OnDragStop>
+        </Scripts>
+    </Frame>
+</Ui>
