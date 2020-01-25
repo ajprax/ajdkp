@@ -284,7 +284,7 @@ function ajdkp.HandleCheckAuctions(target)
     for auction_id=1,NEXT_AUCTION_ID do
         local auction = ajdkp.AUCTIONS[auction_id];
         -- only send ResumeAuction if the user hasn't already bid
-        if ajdkp.Contains(auction.outstanding, ajdkp.StripRealm(target)) then
+        if auction and ajdkp.Contains(auction.outstanding, ajdkp.StripRealm(target)) then
             -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
             ajdkp.SendResumeAuction(auction_id, auction.item_link, auction.remaining_time - 10, target);
         end
