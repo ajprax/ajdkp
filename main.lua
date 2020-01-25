@@ -352,6 +352,4 @@ ajdkp.SendCheckAuctions();
 
 -- TODO: create a frame pool and position the frames based on how many frames are being opened simultaneously
 -- TODO: recognize if there are two of the same item being auctioned and show just one window and give them to the two highest
--- TODO: once a winner is determined lock the ML frame (leave the close button but unlink the cancel-auction effect), charge the dkp
--- TODO: move everything into one files and get rid of CONSTANTS
 -- TODO: if multiple people start auctions the ids may conflict
