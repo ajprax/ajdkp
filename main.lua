@@ -308,33 +308,42 @@ end
 -- Frame used to receive addon messages
 local EVENT_FRAME = CreateFrame("FRAME", nil, UIParent);
 EVENT_FRAME:RegisterEvent("CHAT_MSG_ADDON");
+EVENT_FRAME:RegisterEvent("ADDON_LOADED");
 C_ChatInfo.RegisterAddonMessagePrefix("AJDKP");
 EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
-    local prefix, message, distribution, sender = ...;
-    local msg_type = message:sub(1, 2)
-    if msg_type == "00" then
-        for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
-            ajdkp.HandleStartAuction(auction_id, item_link, sender);
+    if event == "ADDON_LOADED" then
+        -- check for ongoing auctions
+        ajdkp.SendCheckAuctions();
+    elseif event == "CHAT_MSG_ADDON" then
+        local prefix, message, distribution, sender = ...;
+        if prefix == "AJDKP" then
+            print(message);
         end
-    elseif msg_type == "01" then
-        for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
-            ajdkp.HandleResumeAuction(tonumber(auction_id), item_link, sender, tonumber(remaining_time));
+        local msg_type = message:sub(1, 2)
+        if msg_type == "00" then
+            for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
+                ajdkp.HandleStartAuction(auction_id, item_link, sender);
+            end
+        elseif msg_type == "01" then
+            for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
+                ajdkp.HandleResumeAuction(tonumber(auction_id), item_link, sender, tonumber(remaining_time));
+            end
+        elseif msg_type == "02" then
+            for auction_id, spec, amt in string.gmatch(message:sub(4), "(%d+) (%d) (%d+)") do
+                ajdkp.HandlePlaceBid(tonumber(auction_id), tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
+            end
+        elseif msg_type == "03" then
+            local auction_id = tonumber(message:sub(4));
+            ajdkp.HandleRejectBid(auction_id);
+        elseif msg_type == "04" then
+            local auction_id = tonumber(message:sub(4));
+            ajdkp.HandleCancelAuction(auction_id);
+        elseif msg_type == "05" then
+            ajdkp.HandleCheckAuctions(sender);
+        elseif msg_type == "06" then
+            local auction_id = tonumber(message:sub(4));
+            ajdkp.HandlePass(auction_id, sender);
         end
-    elseif msg_type == "02" then
-        for auction_id, spec, amt in string.gmatch(message:sub(4), "(%d+) (%d) (%d+)") do
-            ajdkp.HandlePlaceBid(tonumber(auction_id), tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
-        end
-    elseif msg_type == "03" then
-        local auction_id = tonumber(message:sub(4));
-        ajdkp.HandleRejectBid(auction_id);
-    elseif msg_type == "04" then
-        local auction_id = tonumber(message:sub(4));
-        ajdkp.HandleCancelAuction(auction_id);
-    elseif msg_type == "05" then
-        ajdkp.HandleCheckAuctions(sender);
-    elseif msg_type == "06" then
-        local auction_id = tonumber(message:sub(4));
-        ajdkp.HandlePass(auction_id, sender);
     end
 end);
 
