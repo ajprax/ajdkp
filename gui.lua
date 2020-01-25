@@ -10,7 +10,7 @@ local function ColorGradient(perc)
 end
 
 local function MakeTexture(texture_id, frame, hide)
-    local texture = frame:CreateTexture();
+    local texture = frame:CreateTexture("$parentTexture");
     texture:SetTexture(texture_id);
     texture:SetAllPoints(frame);
     if hide then
@@ -39,7 +39,7 @@ local function CreateCountdownBar(frame, width, remaining_time, max_time)
 end
 
 local function CreateItemIcon(bid_frame, item_link, texture)
-    local icon_frame = CreateFrame("FRAME", "IconFrame", bid_frame);
+    local icon_frame = CreateFrame("FRAME", "$parentIconFrame", bid_frame);
     icon_frame:SetHeight(36);
     icon_frame:SetWidth(36);
     local icon_texture = MakeTexture(texture, icon_frame);
@@ -84,6 +84,10 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
     local player = ajdkp.StripRealm(UnitName("player"));
     local bid_frame = _G[string.format("BidFrame%d", auction_id)];
     if bid_frame then
+        -- this may not be the same actual auction, so update the icon texture and name
+        local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
+        _G[string.format("BidFrame%dTitle", auction_id)]:SetText(name);
+        _G[string.format("BidFrame%dIconFrameTexture")]:SetTexture(GetItemIcon(id));
         -- if a bid is rejected the old frame will be sitting around ready to reuse
         bid_frame:Show();
     else
