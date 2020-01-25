@@ -266,7 +266,7 @@ end
 
 function ajdkp.SendCancelAuction(auction_id)
     local auction = ajdkp.AUCTIONS[auction_id];
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("04 %d %s", auction_id, auction.item_link), "RAID");
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("04 %d", auction_id), "RAID");
 end
 
 function ajdkp.HandleCancelAuction(auction_id)
