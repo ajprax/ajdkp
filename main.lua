@@ -265,7 +265,6 @@ function ajdkp.HandleRejectBid(auction_id)
 end
 
 function ajdkp.SendCancelAuction(auction_id)
-    local auction = ajdkp.AUCTIONS[auction_id];
     C_ChatInfo.SendAddonMessage("AJDKP", string.format("04 %d", auction_id), "RAID");
 end
 
@@ -277,7 +276,12 @@ function ajdkp.HandleCancelAuction(auction_id)
 end
 
 function ajdkp.SendCheckAuctions()
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("05"), "RAID");
+    -- Sometimes we want to send a check auctions message before we're allowed to when loading. this will retry every
+    -- second until it works without blocking other code
+    -- TODO: maybe this should have a limited number of retries. if you log in while not in a party this will run indefinitely
+    if not C_ChatInfo.SendAddonMessage("AJDKP", "05", "RAID") then
+        C_Timer.After(1, ajdkp.SendCheckAuctions);
+    end
 end
 
 function ajdkp.HandleCheckAuctions(target)
@@ -311,38 +315,36 @@ EVENT_FRAME:RegisterEvent("CHAT_MSG_ADDON");
 EVENT_FRAME:RegisterEvent("ADDON_LOADED");
 C_ChatInfo.RegisterAddonMessagePrefix("AJDKP");
 EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
-    if event == "ADDON_LOADED" then
-        -- check for ongoing auctions
-        ajdkp.SendCheckAuctions();
-    elseif event == "CHAT_MSG_ADDON" then
-        local prefix, message, distribution, sender = ...;
-        if prefix == "AJDKP" then
-            print(message);
-        end
-        local msg_type = message:sub(1, 2)
-        if msg_type == "00" then
-            for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
-                ajdkp.HandleStartAuction(auction_id, item_link, sender);
+    local prefix, message, distribution, sender = ...;
+    if prefix and string.upper(prefix) == "AJDKP" then
+        if event == "ADDON_LOADED" then
+            ajdkp.SendCheckAuctions();
+        elseif event == "CHAT_MSG_ADDON" then
+            local msg_type = message:sub(1, 2)
+            if msg_type == "00" then
+                for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
+                    ajdkp.HandleStartAuction(auction_id, item_link, sender);
+                end
+            elseif msg_type == "01" then
+                for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
+                    ajdkp.HandleResumeAuction(tonumber(auction_id), item_link, sender, tonumber(remaining_time));
+                end
+            elseif msg_type == "02" then
+                for auction_id, spec, amt in string.gmatch(message:sub(4), "(%d+) (%d) (%d+)") do
+                    ajdkp.HandlePlaceBid(tonumber(auction_id), tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
+                end
+            elseif msg_type == "03" then
+                local auction_id = tonumber(message:sub(4));
+                ajdkp.HandleRejectBid(auction_id);
+            elseif msg_type == "04" then
+                local auction_id = tonumber(message:sub(4));
+                ajdkp.HandleCancelAuction(auction_id);
+            elseif msg_type == "05" then
+                ajdkp.HandleCheckAuctions(sender);
+            elseif msg_type == "06" then
+                local auction_id = tonumber(message:sub(4));
+                ajdkp.HandlePass(auction_id, sender);
             end
-        elseif msg_type == "01" then
-            for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
-                ajdkp.HandleResumeAuction(tonumber(auction_id), item_link, sender, tonumber(remaining_time));
-            end
-        elseif msg_type == "02" then
-            for auction_id, spec, amt in string.gmatch(message:sub(4), "(%d+) (%d) (%d+)") do
-                ajdkp.HandlePlaceBid(tonumber(auction_id), tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
-            end
-        elseif msg_type == "03" then
-            local auction_id = tonumber(message:sub(4));
-            ajdkp.HandleRejectBid(auction_id);
-        elseif msg_type == "04" then
-            local auction_id = tonumber(message:sub(4));
-            ajdkp.HandleCancelAuction(auction_id);
-        elseif msg_type == "05" then
-            ajdkp.HandleCheckAuctions(sender);
-        elseif msg_type == "06" then
-            local auction_id = tonumber(message:sub(4));
-            ajdkp.HandlePass(auction_id, sender);
         end
     end
 end);
@@ -355,8 +357,6 @@ SlashCmdList["AJDKP"] = function(msg)
     end
 end
 
--- Send a CheckAuctions message on startup in case there are any running
-ajdkp.SendCheckAuctions(); -- TODO try to delay this
 
 
 -- TODO: create a frame pool and position the frames based on how many frames are being opened simultaneously
