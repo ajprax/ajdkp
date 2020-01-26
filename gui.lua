@@ -61,10 +61,16 @@ local function CreateItemIcon(bid_frame, item_link, texture)
 end
 
 local function CreateTitleText(bid_frame, item_name)
-    local title = bid_frame:CreateFontString("%parentTitle", "BACKGROUND", "ChatFontNormal");
+    local title = bid_frame:CreateFontString("$parentTitle", "BACKGROUND", "ChatFontNormal");
     title:SetFont("Fonts\\FRIZQT__.TTF", 12);
     title:SetText(item_name);
     title:SetPoint("TOPLEFT", bid_frame, "TOPLEFT", 5, -5);
+end
+
+local function CreateOutstandingBiddersText(ml_frame)
+    local text = ml_frame:CreateFontString("$parentOutstandingBidders", "BACKGROUND", "ChatFontNormal");
+    text:SetFont("Fonts\\FRIZQT__.TTF", 12);
+    text:SetPoint("BOTTOMLEFT", ml_frame, "BOTTOMLEFT", 20, 46);
 end
 
 local function CreateCurrentDKPText(bid_frame)
@@ -192,6 +198,7 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
     local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
     CreateItemIcon(ml_frame, item_link, GetItemIcon(id));
     CreateTitleText(ml_frame, name);
+    CreateOutstandingBiddersText(ml_frame);
     CreateBidListFrame(ml_frame);
     local close_button = ajdkp.GetCloseButton(ml_frame);
     close_button:SetScript("OnClick", function()
@@ -236,7 +243,8 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
         return spec_text, amt_text, bidder_text, cancel_bid_button
     end
 
-    local function UpdateBidderList(num_old_bids, new_bids)
+    local function UpdateBidderList(num_old_bids, new_bids, num_outstanding_bids)
+        _G[string.format("MLFrame%dOutstandingBidders", auction_id)]:SetText(tostring(num_outstanding_bids));
         local list_frame = _G[string.format("MLFrame%dBidderList", auction_id)];
         local num_new_bids = #new_bids;
         list_frame:SetHeight(15 * num_new_bids);
@@ -288,7 +296,7 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
             end
         end
         -- Update the list of bids
-        UpdateBidderList(num_bids, auction.bids);
+        UpdateBidderList(num_bids, auction.bids, #auction.outstanding);
         num_bids = #auction.bids;
         -- Update the Declare Winner button
         if auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS or auction.state == ajdkp.CONSTANTS.COMPLETE then

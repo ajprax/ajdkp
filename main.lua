@@ -375,4 +375,3 @@ end
 -- TODO: disable bidding on items the user can't equip
 -- TODO: preserve the location where the user dragged the windows
 -- TODO: normalize frame strata
--- TODO: show the number of people yet to bid, mouseover to get a list
