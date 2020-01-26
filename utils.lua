@@ -53,13 +53,21 @@ function ajdkp.TwoToOneSort(new_bid, old_bid)
     return ajdkp.BidWeight(new_bid) > ajdkp.BidWeight(old_bid)
 end
 
-function ajdkp.InsertNewBid(bids, new_bid, sort)
+function ajdkp.ApplyPriority(b1, b2)
+    if ajdkp.CONSTANTS.PRIORITY_TYPE == ajdkp.CONSTANTS.MS_OVER_OS then
+        return ajdkp.MSOverOSSort(b1, b2);
+    elseif ajdkp.CONSTANTS.PRIORITY_TYPE == ajdkp.CONSTANTS.TWO_TO_ONE then
+        return ajdkp.TwoToOneSort(b1, b2);
+    end
+end
+
+function ajdkp.InsertNewBid(bids, new_bid)
     -- find the insertion index then shift everything after downward
 
     -- default to inserting at the end, for an empty table this will be position 1
     local insert_at = #bids + 1;
     for i, old_bid in ipairs(bids) do
-        if sort(new_bid, old_bid) then
+        if ajdkp.ApplyPriority(new_bid, old_bid) then
             insert_at = i;
             break
         end

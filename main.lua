@@ -65,6 +65,7 @@ function ajdkp.DeclareWinner(auction_id)
         spec = "OS"
     end
     if character then
+        ajdkp.AUCTIONS[auction_id].state = ajdkp.CONSTANTS.COMPLETE;
         SendChatMessage(string.format("%s wins %s for %d dkp (%s)", character, auction.item_link, amt, spec) ,"RAID");
         -- go through all open auctions and make sure the winner of this auction hasn't bid more than their new dkp
         -- if they have, lower their bid to their new dkp (we presume they'd still be willing to bid that much since
@@ -72,16 +73,18 @@ function ajdkp.DeclareWinner(auction_id)
         local winners_new_dkp = ajdkp.GetDKP(character) - amt;
         for _, auction in ipairs(ajdkp.AUCTIONS) do
             if auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS or auction.state == ajdkp.CONSTANTS.READY_TO_RESOLVE then
-                for _, bid in ipairs(auction.bids) do
-                    local _, bid_amt, bid_character = unpack(bid);
+                for i, bid in ipairs(auction.bids) do
+                    local bid_spec, bid_amt, bid_character = unpack(bid);
                     if bid_character == character and bid_amt > winners_new_dkp then
-                        bid[2] = winners_new_dkp;
+                        -- remove the bid and re-insert with the new dkp amount so it's sorted correctly
+                        table.remove(auction.bids, i);
+                        ajdkp.InsertNewBid(auction.bids, {bid_spec, winners_new_dkp, bid_character});
+                        break
                     end
                 end
             end
         end
         SOTA_Call_SubtractPlayerDKP(character, amt);
-        ajdkp.AUCTIONS[auction_id].state = ajdkp.CONSTANTS.COMPLETE;
         _G[string.format("MLFrame%dDeclareWinnerButton", auction_id)]:SetText(string.format("%s wins!", character));
         local ml_frame = _G[string.format("MLFrame%d", auction_id)];
         ajdkp.GetCloseButton(ml_frame):SetScript("OnClick", function() ml_frame:Hide() end)
@@ -240,15 +243,7 @@ end
 function ajdkp.HandlePlaceBid(auction_id, spec, amt, character)
     local auction = ajdkp.AUCTIONS[auction_id];
     if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
-        local sort;
-        if ajdkp.CONSTANTS.PRIORITY_TYPE == ajdkp.CONSTANTS.MS_OVER_OS then
-            sort = ajdkp.MSOverOSSort;
-        elseif ajdkp.CONSTANTS.PRIORITY_TYPE == ajdkp.CONSTANTS.TWO_TO_ONE then
-            sort = ajdkp.TwoToOneSort;
-        else
-            -- TODO: some kind of error
-        end
-        ajdkp.InsertNewBid(auction.bids, {spec, amt, character}, sort);
+        ajdkp.InsertNewBid(auction.bids, {spec, amt, character});
         ajdkp.Remove(auction.outstanding, character);
         if ReadyToResolve(auction_id) then
             auction.state = ajdkp.CONSTANTS.READY_TO_RESOLVE;
@@ -365,3 +360,4 @@ end
 -- TODO: disable bidding on items the user can't equip
 -- TODO: disable declare winner if time has expired with no bids
 -- TODO: preserve the location where the user dragged the windows
+-- TODO: normalize frame strata
