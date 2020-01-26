@@ -292,7 +292,7 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
         -- Update the Declare Winner button
         if auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS or auction.state == ajdkp.CONSTANTS.COMPLETE then
             declare_winner_button:Disable();
-        elseif auction.state == ajdkp.CONSTANTS.READY_TO_RESOLVE then
+        elseif auction.state == ajdkp.CONSTANTS.READY_TO_RESOLVE and #auction.bids > 0 then
             declare_winner_button:Enable();
         elseif auction.state == ajdkp.CONSTANTS.CANCELED then
             ml_frame:Hide();
