@@ -75,6 +75,11 @@
                         </Texture>
                     </Layer>
                 </Layers>
+                <Scripts>
+                    <OnEscapePressed>
+                        self:ClearFocus();
+                    </OnEscapePressed>
+                </Scripts>
             </EditBox>
 
             <Button name="$parentMSButton" text="MS" inherits="UIPanelButtonTemplate">
