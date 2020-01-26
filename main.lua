@@ -139,6 +139,8 @@ function ajdkp.DetermineWinner(auction_id)
                 -- and because we can only charge whole numebrs of dkp, we round the price. We always round up because
                 -- rounding down would put the price below the second bidder's bid weight instead of equal or greater
                 local price = math.ceil(second_amt / second_spec * first_spec);
+                -- the final price can never be less than 10
+                price = math.max(price, 10);
                 return {first_spec, price, first_character }
             else
                 -- a tie (possibly with more than 2 top bidders)
@@ -359,5 +361,7 @@ end
 
 -- TODO: create a frame pool and position the frames based on how many frames are being opened simultaneously
 -- TODO: recognize if there are two of the same item being auctioned and show just one window and give them to the two highest
--- TODO: if multiple people start auctions the ids may conflict
+-- TODO: if multiple people start auctions the ids may conflict (this includes someone reloading since it resets their auction id)
 -- TODO: disable bidding on items the user can't equip
+-- TODO: disable declare winner if time has expired with no bids
+-- TODO: preserve the location where the user dragged the windows
