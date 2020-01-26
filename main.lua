@@ -341,7 +341,7 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
                 ajdkp.HandleCheckAuctions(sender);
             elseif msg_type == "06" then
                 local auction_id = tonumber(message:sub(4));
-                ajdkp.HandlePass(auction_id, sender);
+                ajdkp.HandlePass(auction_id, ajdkp.StripRealm(sender));
             end
         end
     end
