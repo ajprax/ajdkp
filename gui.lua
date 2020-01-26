@@ -252,6 +252,7 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
             spec_text:SetText(spec);
             amt_text:SetText(amt);
             bidder_text:SetText(bidder);
+            bidder_text:SetTextColor(unpack(ajdkp.CONSTANTS.CLASS_COLORS[select(3, UnitClass(bidder))]));
             cancel_bid_button:SetScript("OnClick", function()
                 ajdkp.RejectBid(auction_id, bidder);
             end);

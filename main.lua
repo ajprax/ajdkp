@@ -15,6 +15,21 @@ ajdkp.CONSTANTS.ACCEPTING_BIDS = 1;
 ajdkp.CONSTANTS.READY_TO_RESOLVE = 2;
 ajdkp.CONSTANTS.COMPLETE = 3;
 ajdkp.CONSTANTS.CANCELED = 4;
+-- Class colors
+ajdkp.CONSTANTS.CLASS_COLORS = { -- CLASS_COLORS[select(3, UnitClass("name"))]
+    {0.78, 0.61, 0.43}, -- warrior
+    {0.96, 0.55, 0.73}, -- paladin
+    {0.67, 0.83, 0.45}, -- hunter
+    {1.00, 0.96, 0.41}, -- rogue
+    {1.00, 1.00, 1.00}, -- priest
+    {0.77, 0.12, 0.23}, -- death knight
+    {0.00, 0.44, 0.87}, -- shaman
+    {0.41, 0.80, 0.94}, -- mage
+    {0.58, 0.51, 0.79}, -- warlock
+    {0.33, 0.54, 0.52}, -- monk
+    {1.00, 0.49, 0.04}, -- druid
+    {0.64, 0.19, 0.79}, -- demon hunter
+};
 
 -- keys are auction ids
 -- values are
@@ -358,6 +373,6 @@ end
 -- TODO: recognize if there are two of the same item being auctioned and show just one window and give them to the two highest
 -- TODO: if multiple people start auctions the ids may conflict (this includes someone reloading since it resets their auction id)
 -- TODO: disable bidding on items the user can't equip
--- TODO: disable declare winner if time has expired with no bids
 -- TODO: preserve the location where the user dragged the windows
 -- TODO: normalize frame strata
+-- TODO: show the number of people yet to bid, mouseover to get a list
