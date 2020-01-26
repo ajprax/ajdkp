@@ -233,6 +233,10 @@ end
 --     sent by bidder in WHISPER to ML
 --     contains auction id
 --     triggers ML client to mark bidder as ready
+-- CONFIRM_BID (07)
+--     sent by ML in WHISPER to bidder
+--     contains auction id, bid details (spec, amount, item link)
+--     triggers bidder client to print "Your bid (amt MS/OS) for [link] was received"
 
 function ajdkp.SendStartAuction(auction_id, item_link)
     C_ChatInfo.SendAddonMessage("AJDKP", string.format("00 %d %s", auction_id, item_link), "RAID");
@@ -260,6 +264,7 @@ function ajdkp.HandlePlaceBid(auction_id, spec, amt, character)
     if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
         ajdkp.InsertNewBid(auction.bids, {spec, amt, character});
         ajdkp.Remove(auction.outstanding, character);
+        ajdkp.SendConfirmBid(spec, amt, auction.item_link, character);
         if ReadyToResolve(auction_id) then
             auction.state = ajdkp.CONSTANTS.READY_TO_RESOLVE;
         end
@@ -319,6 +324,19 @@ function ajdkp.HandlePass(auction_id, character)
     end
 end
 
+function ajdkp.SendConfirmBid(spec, amt, item_link, bidder)
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("07 %d %d %s", spec, amt, item_link), "WHISPER", bidder);
+end
+
+function ajdkp.HandleConfirmBid(spec, amt, item_link)
+    if spec == ajdkp.CONSTANTS.MS then
+        spec = "MS"
+    elseif spec == ajdkp.CONSTANTS.OS then
+        spec = "OS"
+    end
+    print(string.format("Your bid (%d %s) for %s was received", amt, spec, item_link));
+end
+
 -- Frame used to receive addon messages
 local EVENT_FRAME = CreateFrame("FRAME", nil, UIParent);
 EVENT_FRAME:RegisterEvent("CHAT_MSG_ADDON");
@@ -354,6 +372,10 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
             elseif msg_type == "06" then
                 local auction_id = tonumber(message:sub(4));
                 ajdkp.HandlePass(auction_id, ajdkp.StripRealm(sender));
+            elseif msg_type == "07" then
+                for spec, amt, item_link in string.gmatch(message:sub(4), "(%d) (%d+) (.+)") do
+                    ajdkp.HandleConfirmBid(tonumber(spec), tonumber(amt), item_link);
+                end
             end
         end
     end
