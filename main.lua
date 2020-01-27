@@ -74,6 +74,8 @@ end
 function ajdkp.DeclareWinner(auction_id)
     local auction = ajdkp.AUCTIONS[auction_id];
     local spec, amt, character = unpack(ajdkp.DetermineWinner(auction_id));
+    -- the final price can never be less than 10
+    amt = math.max(amt, 10);
     if spec == ajdkp.CONSTANTS.MS then
         spec = "MS"
     elseif spec == ajdkp.CONSTANTS.OS then
@@ -123,8 +125,9 @@ function ajdkp.DetermineWinner(auction_id)
                 -- MS trumps OS so first bidder wins for the minimum
                 return {first_spec, ajdkp.CONSTANTS.MINIMUM_BID, first_character }
             elseif not (first_amt == second_amt) then
-                -- specs are the same, but bid amounts are different so give it to the highest bidder
-                return {first_spec, second_amt, first_character }
+                -- specs are the same, but bid amounts are different so give it to the highest bidder for the second
+                -- highest bid + 1 to avoid the appearance of a tie
+                return {first_spec, second_amt + 1, first_character }
             else
                 -- a tie (possibly with more than 2 top bidders)
                 local tied_bids = {};
@@ -156,9 +159,12 @@ function ajdkp.DetermineWinner(auction_id)
                 -- because the bid weight of the second place bidder could be a fraction (e.g. {2, 5, a} for a weight of 2.5)
                 -- and because we can only charge whole numebrs of dkp, we round the price. We always round up because
                 -- rounding down would put the price below the second bidder's bid weight instead of equal or greater
-                local price = math.ceil(second_amt / second_spec * first_spec);
-                -- the final price can never be less than 10
-                price = math.max(price, 10);
+                local unrounded = second_amt / second_spec * first_spec;
+                local price = math.ceil(unrounded);
+                if price == unrounded then
+                    -- rounding had no effect, so add one to the price to avoid the appearance of a tie
+                    price = price + 1;
+                end
                 return {first_spec, price, first_character }
             else
                 -- a tie (possibly with more than 2 top bidders)
