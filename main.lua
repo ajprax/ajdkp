@@ -4,6 +4,8 @@ local _, ajdkp = ...
 AJDKP_FRAME_POSITIONS = {};
 
 ajdkp.CONSTANTS = {};
+ajdkp.CONSTANTS.VERSION = "0.1.0";
+
 ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
 -- bid priorities
@@ -33,6 +35,60 @@ ajdkp.CONSTANTS.CLASS_COLORS = { -- CLASS_COLORS[select(3, UnitClass("name"))]
     {1.00, 0.49, 0.04}, -- druid
     {0.64, 0.19, 0.79}, -- demon hunter
 };
+
+-- Messages
+-- START_AUCTION (00)
+--     sent by ML to RAID
+--     contains (auction id, item link)
+--     triggers clients to show bid window
+-- RESUME_AUCTION (01)
+--     sent by ML in WHISPER to bidder
+--     contains (auction id, remaining time, item link)
+--     triggers one client to show bid window
+-- PLACE_BID (02)
+--     sent by bidder in WHISPER to ML
+--     contains (auction id, spec/coefficient (1/2), bid amount)
+--     trigger ML client to add bid to list
+-- REJECT_BID (03)
+--     sent by ML in WHISPER to bidder
+--     contains auction id
+--     triggers client to print "your bid has been rejected by the masterlooter"
+--     immediately followed by a RESUME_AUCTION for the same item so the user can rebid if appropriate
+-- CANCEL_AUCTION (04)
+--     sent by ML in RAID
+--     contains auction id
+--     triggers clients to print "auction for {} has been canceled by masterlooter" and hide open bid windows
+-- CHECK_AUCTIONS (05)
+--     sent by bidder in RAID
+--     empty
+--     triggers ML client to respond with RESUME_AUCTION for any open auctions in which the sender hasn't already bid
+-- PASS (06)
+--     sent by bidder in WHISPER to ML
+--     contains auction id
+--     triggers ML client to mark bidder as ready
+-- CONFIRM_BID (07)
+--     sent by ML in WHISPER to bidder
+--     contains auction id, bid details (spec, amount, item link)
+--     triggers bidder client to print "Your bid (amt MS/OS) for [link] was received"
+-- GREET (08)
+--     sent by everyone in GUILD upon logging in
+--     includes addon version
+--     triggers recipients to send back their addon version (eventually this will be used to verify everyone has the latest version) and next auction id (one higher than the highest one they've seen)
+-- WELCOME (09)
+--     sent by everyone in WHISPER to sender of GREET
+--     contains addon version and next auction id
+--     triggers client to update NEXT_AUCTION_ID and eventually addon version will be used to verify everyone has the latest version
+
+ajdkp.CONSTANTS.START_AUCTION = "00";
+ajdkp.CONSTANTS.RESUME_AUCTION = "01";
+ajdkp.CONSTANTS.PLACE_BID = "02";
+ajdkp.CONSTANTS.REJECT_BID = "03";
+ajdkp.CONSTANTS.CANCEL_AUCTION = "04";
+ajdkp.CONSTANTS.CHECK_AUCTIONS = "05";
+ajdkp.CONSTANTS.PASS = "06";
+ajdkp.CONSTANTS.CONFIRM_BID = "07";
+ajdkp.CONSTANTS.GREET = "08";
+ajdkp.CONSTANTS.WELCOME = "09";
 
 -- keys are auction ids
 -- values are
@@ -214,52 +270,12 @@ function ajdkp.CancelAuction(auction_id)
     ajdkp.HandleCancelAuction(auction_id);
 end
 
--- Messages
--- START_AUCTION (00)
---     sent by ML to RAID
---     contains (auction id, item link)
---     triggers clients to show bid window
--- RESUME_AUCTION (01)
---     sent by ML in WHISPER to bidder
---     contains (auction id, remaining time, item link)
---     triggers one client to show bid window
--- PLACE_BID (02)
---     sent by bidder in WHISPER to ML
---     contains (auction id, spec/coefficient (1/2), bid amount)
---     trigger ML client to add bid to list
--- REJECT_BID (03)
---     sent by ML in WHISPER to bidder
---     contains auction id
---     triggers client to print "your bid has been rejected by the masterlooter"
---     immediately followed by a RESUME_AUCTION for the same item so the user can rebid if appropriate
--- CANCEL_AUCTION (04)
---     sent by ML in RAID
---     contains auction id
---     triggers clients to print "auction for {} has been canceled by masterlooter" and hide open bid windows
--- CHECK_AUCTIONS (05)
---     sent by bidder in RAID
---     empty
---     triggers ML client to respond with RESUME_AUCTION for any open auctions in which the sender hasn't already bid
--- PASS (06)
---     sent by bidder in WHISPER to ML
---     contains auction id
---     triggers ML client to mark bidder as ready
--- CONFIRM_BID (07)
---     sent by ML in WHISPER to bidder
---     contains auction id, bid details (spec, amount, item link)
---     triggers bidder client to print "Your bid (amt MS/OS) for [link] was received"
--- GET_NEXT_AUCTION_ID (08)
---     sent by everyone in GUILD
---     empty
---     triggers recipients to send back their next auction id (one higher than the highest one they've seen)
--- GIVE_NEXT_AUCTION_ID (09)
---     sent by everyone in WHISPER to sender of GET_NEXT_AUCTION_ID
---     contains next auction id
---     triggers client to update NEXT_AUCTION_ID
-
+--------------
+-- MESSAGES --
+--------------
 
 function ajdkp.SendStartAuction(auction_id, item_link)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("00 %d %s", auction_id, item_link), "RAID");
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d %s", ajdkp.CONSTANTS.START_AUCTION, auction_id, item_link), "RAID");
 end
 
 function ajdkp.HandleStartAuction(auction_id, item_link, master_looter)
@@ -269,7 +285,7 @@ function ajdkp.HandleStartAuction(auction_id, item_link, master_looter)
 end
 
 function ajdkp.SendResumeAuction(auction_id, item_link, remaining_time, target)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("01 %d %d %s", auction_id, remaining_time, item_link), "WHISPER", target);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d %d %s", ajdkp.CONSTANTS.RESUME_AUCTION, auction_id, remaining_time, item_link), "WHISPER", target);
 end
 
 function ajdkp.HandleResumeAuction(auction_id, item_link, master_looter, remaining_time)
@@ -278,7 +294,7 @@ function ajdkp.HandleResumeAuction(auction_id, item_link, master_looter, remaini
 end
 
 function ajdkp.SendPlaceBid(auction_id, spec, amt, master_looter)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("02 %d %d %d", auction_id, spec, amt), "WHISPER", master_looter);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d %d %d", ajdkp.CONSTANTS.PLACE_BID, auction_id, spec, amt), "WHISPER", master_looter);
 end
 
 function ajdkp.HandlePlaceBid(auction_id, spec, amt, character)
@@ -295,7 +311,7 @@ function ajdkp.HandlePlaceBid(auction_id, spec, amt, character)
 end
 
 function ajdkp.SendRejectBid(auction_id, target)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("03 %d", auction_id), "WHISPER", target);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d", ajdkp.CONSTANTS.REJECT_BID, auction_id), "WHISPER", target);
 end
 
 function ajdkp.HandleRejectBid(auction_id)
@@ -304,7 +320,7 @@ function ajdkp.HandleRejectBid(auction_id)
 end
 
 function ajdkp.SendCancelAuction(auction_id)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("04 %d", auction_id), "RAID");
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d", ajdkp.CONSTANTS.CANCEL_AUCTION, auction_id), "RAID");
 end
 
 function ajdkp.HandleCancelAuction(auction_id)
@@ -319,7 +335,7 @@ function ajdkp.SendCheckAuctions()
     -- Sometimes we want to send a check auctions message before we're allowed to when loading. this will retry every
     -- second until it works without blocking other code
     -- TODO: maybe this should have a limited number of retries. if you log in while not in a party this will run indefinitely
-    if not C_ChatInfo.SendAddonMessage("AJDKP", "05", "RAID") then
+    if not C_ChatInfo.SendAddonMessage("AJDKP", ajdkp.CONSTANTS.CHECK_AUCTIONS, "RAID") then
         C_Timer.After(1, ajdkp.SendCheckAuctions);
     end
 end
@@ -336,7 +352,7 @@ function ajdkp.HandleCheckAuctions(target)
 end
 
 function ajdkp.SendPass(auction_id, master_looter)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("06 %d", auction_id), "WHISPER", master_looter);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d", ajdkp.CONSTANTS.PASS, auction_id), "WHISPER", master_looter);
 end
 
 function ajdkp.HandlePass(auction_id, character)
@@ -351,7 +367,7 @@ function ajdkp.HandlePass(auction_id, character)
 end
 
 function ajdkp.SendConfirmBid(spec, amt, item_link, bidder)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("07 %d %d %s", spec, amt, item_link), "WHISPER", bidder);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d %d %s", ajdkp.CONSTANTS.CONFIRM_BID, spec, amt, item_link), "WHISPER", bidder);
 end
 
 function ajdkp.HandleConfirmBid(spec, amt, item_link)
@@ -363,21 +379,24 @@ function ajdkp.HandleConfirmBid(spec, amt, item_link)
     print(string.format("Your bid (%d %s) for %s was received", amt, spec, item_link));
 end
 
-function ajdkp.SendGetNextAuctionId()
-    C_ChatInfo.SendAddonMessage("AJDKP", "08", "GUILD");
+function ajdkp.SendGreet()
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %s", ajdkp.CONSTANTS.GREET, ajdkp.CONSTANTS.VERSION), "GUILD");
 end
 
-function ajdkp.HandleGetNextAuctionId(target)
-    ajdkp.SendGiveNextAuctionId(target);
+function ajdkp.HandleGreet(target, version)
+    -- version is ignored for now
+    ajdkp.SendWelcome(target);
 end
 
-function ajdkp.HandleGiveNextAuctionId(next_auciton_id)
+function ajdkp.SendWelcome(target)
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d %s", ajdkp.CONSTANTS.WELCOME, NEXT_AUCTION_ID, ajdkp.CONSTANTS.VERSION), "WHISPER", target);
+end
+
+function ajdkp.HandleWelcome(next_auciton_id, version)
+    -- version is ignored for now
     NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, next_auciton_id);
 end
 
-function ajdkp.SendGiveNextAuctionId(target)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("09 %d", NEXT_AUCTION_ID), "WHISPER", target);
-end
 
 -- Frame used to receive addon messages
 local EVENT_FRAME = CreateFrame("FRAME", nil, UIParent);
@@ -387,43 +406,45 @@ C_ChatInfo.RegisterAddonMessagePrefix("AJDKP");
 EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
         ajdkp.SendCheckAuctions();
-        ajdkp.SendGetNextAuctionId();
+        ajdkp.SendGreet();
         return
     end
     local prefix, message, distribution, sender = ...;
     if prefix and string.upper(prefix) == "AJDKP" and event == "CHAT_MSG_ADDON" then
         local msg_type = message:sub(1, 2)
-        if msg_type == "00" then
+        if msg_type == ajdkp.CONSTANTS.START_AUCTION then
             for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
                 ajdkp.HandleStartAuction(auction_id, item_link, sender);
             end
-        elseif msg_type == "01" then
+        elseif msg_type == ajdkp.CONSTANTS.RESUME_AUCTION then
             for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
                 ajdkp.HandleResumeAuction(tonumber(auction_id), item_link, sender, tonumber(remaining_time));
             end
-        elseif msg_type == "02" then
+        elseif msg_type == ajdkp.CONSTANTS.PLACE_BID then
             for auction_id, spec, amt in string.gmatch(message:sub(4), "(%d+) (%d) (%d+)") do
                 ajdkp.HandlePlaceBid(tonumber(auction_id), tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
             end
-        elseif msg_type == "03" then
+        elseif msg_type == ajdkp.CONSTANTS.REJECT_BID then
             local auction_id = tonumber(message:sub(4));
             ajdkp.HandleRejectBid(auction_id);
-        elseif msg_type == "04" then
+        elseif msg_type == ajdkp.CONSTANTS.CANCEL_AUCTION then
             local auction_id = tonumber(message:sub(4));
             ajdkp.HandleCancelAuction(auction_id);
-        elseif msg_type == "05" then
+        elseif msg_type == ajdkp.CONSTANTS.CHECK_AUCTIONS then
             ajdkp.HandleCheckAuctions(sender);
-        elseif msg_type == "06" then
+        elseif msg_type == ajdkp.CONSTANTS.PASS then
             local auction_id = tonumber(message:sub(4));
             ajdkp.HandlePass(auction_id, ajdkp.StripRealm(sender));
-        elseif msg_type == "07" then
+        elseif msg_type == ajdkp.CONSTANTS.CONFIRM_BID then
             for spec, amt, item_link in string.gmatch(message:sub(4), "(%d) (%d+) (.+)") do
                 ajdkp.HandleConfirmBid(tonumber(spec), tonumber(amt), item_link);
             end
-        elseif msg_type == "08" then
-            ajdkp.HandleGetNextAuctionId(sender);
-        elseif msg_type == "09" then
-            ajdkp.HandleGiveNextAuctionId(tonumber(message:sub(4)));
+        elseif msg_type == ajdkp.CONSTANTS.GREET then
+            ajdkp.HandleGreet(sender, message:sub(4));
+        elseif msg_type == ajdkp.CONSTANTS.WELCOME then
+            for next_auction_id, version in string.gmatch(message:sub(4), "(%d) (.*)") do
+                ajdkp.HandleWelcome(next_auction_id, version);
+            end
         end
     end
 end);
