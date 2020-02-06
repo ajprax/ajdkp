@@ -76,38 +76,40 @@ end
 
 function ajdkp.DeclareWinner(auction_id)
     local auction = ajdkp.AUCTIONS[auction_id];
-    local spec, amt, character = unpack(ajdkp.DetermineWinner(auction_id));
-    -- the final price can never be less than 10
-    amt = math.max(amt, 10);
-    if spec == ajdkp.CONSTANTS.MS then
-        spec = "MS"
-    elseif spec == ajdkp.CONSTANTS.OS then
-        spec = "OS"
-    end
-    if character then
-        ajdkp.AUCTIONS[auction_id].state = ajdkp.CONSTANTS.COMPLETE;
-        SendChatMessage(string.format("%s wins %s for %d dkp (%s)", character, auction.item_link, amt, spec) ,"RAID");
-        -- go through all open auctions and make sure the winner of this auction hasn't bid more than their new dkp
-        -- if they have, lower their bid to their new dkp (we presume they'd still be willing to bid that much since
-        -- it's less than they've previously said they were willing to pay)
-        local winners_new_dkp = ajdkp.GetDKP(character) - amt;
-        for _, auction in ipairs(ajdkp.AUCTIONS) do
-            if auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS or auction.state == ajdkp.CONSTANTS.READY_TO_RESOLVE then
-                for i, bid in ipairs(auction.bids) do
-                    local bid_spec, bid_amt, bid_character = unpack(bid);
-                    if bid_character == character and bid_amt > winners_new_dkp then
-                        -- remove the bid and re-insert with the new dkp amount so it's sorted correctly
-                        table.remove(auction.bids, i);
-                        ajdkp.InsertNewBid(auction.bids, {bid_spec, winners_new_dkp, bid_character});
-                        break
+    if ajdkp.AUCTIONS[auction_id].state == ajdkp.CONSTANTS.READY_TO_RESOLVE then
+        local spec, amt, character = unpack(ajdkp.DetermineWinner(auction_id));
+        -- the final price can never be less than 10
+        amt = math.max(amt, 10);
+        if spec == ajdkp.CONSTANTS.MS then
+            spec = "MS"
+        elseif spec == ajdkp.CONSTANTS.OS then
+            spec = "OS"
+        end
+        if character then
+            ajdkp.AUCTIONS[auction_id].state = ajdkp.CONSTANTS.COMPLETE;
+            SendChatMessage(string.format("%s wins %s for %d dkp (%s)", character, auction.item_link, amt, spec) ,"RAID");
+            -- go through all open auctions and make sure the winner of this auction hasn't bid more than their new dkp
+            -- if they have, lower their bid to their new dkp (we presume they'd still be willing to bid that much since
+            -- it's less than they've previously said they were willing to pay)
+            local winners_new_dkp = ajdkp.GetDKP(character) - amt;
+            for _, auction in ipairs(ajdkp.AUCTIONS) do
+                if auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS or auction.state == ajdkp.CONSTANTS.READY_TO_RESOLVE then
+                    for i, bid in ipairs(auction.bids) do
+                        local bid_spec, bid_amt, bid_character = unpack(bid);
+                        if bid_character == character and bid_amt > winners_new_dkp then
+                            -- remove the bid and re-insert with the new dkp amount so it's sorted correctly
+                            table.remove(auction.bids, i);
+                            ajdkp.InsertNewBid(auction.bids, {bid_spec, winners_new_dkp, bid_character});
+                            break
+                        end
                     end
                 end
             end
+            SOTA_Call_SubtractPlayerDKP(character, amt);
+            _G[string.format("MLFrame%dDeclareWinnerButton", auction_id)]:SetText(string.format("%s wins!", character));
+            local ml_frame = _G[string.format("MLFrame%d", auction_id)];
+            ajdkp.GetCloseButton(ml_frame):SetScript("OnClick", function() ml_frame:Hide() end)
         end
-        SOTA_Call_SubtractPlayerDKP(character, amt);
-        _G[string.format("MLFrame%dDeclareWinnerButton", auction_id)]:SetText(string.format("%s wins!", character));
-        local ml_frame = _G[string.format("MLFrame%d", auction_id)];
-        ajdkp.GetCloseButton(ml_frame):SetScript("OnClick", function() ml_frame:Hide() end)
     end
 end
 
