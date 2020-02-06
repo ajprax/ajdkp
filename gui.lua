@@ -122,9 +122,13 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
         CreateCurrentDKPText(bid_frame);
     end
 
-    local x_offset = ((auction_id % 4) - 1.5) * 200
-    bid_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -150);
-
+    local saved_position = AJDKP_FRAME_POSITIONS[bid_frame:GetName()];
+    if saved_position then
+        bid_frame:SetPoint("CENTER", UIParent, "CENTER", saved_position[1], saved_position[2]);
+    else
+        local x_offset = ((auction_id % 4) - 1.5) * 200
+        bid_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -150);
+    end
     local bid_input = _G[string.format("BidFrame%dBidAmount", auction_id)];
     local ms_button = _G[string.format("BidFrame%dMSButton", auction_id)];
     local os_button = _G[string.format("BidFrame%dOSButton", auction_id)];
@@ -192,8 +196,14 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
         UIParent,
         "MLFrameTemplate"
     );
-    local x_offset = ((auction_id % 4) - 1.5) * 300
-    ml_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
+
+    local saved_position = AJDKP_FRAME_POSITIONS[ml_frame:GetName()];
+    if saved_position then
+        ml_frame:SetPoint("CENTER", UIParent, "CENTER", saved_position[1], saved_position[2]);
+    else
+        local x_offset = ((auction_id % 4) - 1.5) * 300
+        ml_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
+    end
     CreateCountdownBar(ml_frame, ml_frame:GetWidth() - 8, ajdkp.CONSTANTS.AUCTION_DURATION, ajdkp.CONSTANTS.AUCTION_DURATION);
     local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
     CreateItemIcon(ml_frame, item_link, GetItemIcon(id));

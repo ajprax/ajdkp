@@ -1,5 +1,8 @@
 local _, ajdkp = ...
 
+-- position of the various bid and ml frames saved between sessions. keys are frame names, values are {x, y} for a CENTER anchor to the UIParent
+AJDKP_FRAME_POSITIONS = {};
+
 ajdkp.CONSTANTS = {};
 ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
@@ -243,12 +246,22 @@ end
 --     sent by ML in WHISPER to bidder
 --     contains auction id, bid details (spec, amount, item link)
 --     triggers bidder client to print "Your bid (amt MS/OS) for [link] was received"
+-- GET_NEXT_AUCTION_ID (08)
+--     sent by everyone in GUILD
+--     empty
+--     triggers recipients to send back their next auction id (one higher than the highest one they've seen)
+-- GIVE_NEXT_AUCTION_ID (09)
+--     sent by everyone in WHISPER to sender of GET_NEXT_AUCTION_ID
+--     contains next auction id
+--     triggers client to update NEXT_AUCTION_ID
+
 
 function ajdkp.SendStartAuction(auction_id, item_link)
     C_ChatInfo.SendAddonMessage("AJDKP", string.format("00 %d %s", auction_id, item_link), "RAID");
 end
 
 function ajdkp.HandleStartAuction(auction_id, item_link, master_looter)
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
     -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
     ajdkp.CreateBidFrame(auction_id, item_link, master_looter, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
 end
@@ -258,6 +271,7 @@ function ajdkp.SendResumeAuction(auction_id, item_link, remaining_time, target)
 end
 
 function ajdkp.HandleResumeAuction(auction_id, item_link, master_looter, remaining_time)
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
     ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_time)
 end
 
@@ -266,6 +280,7 @@ function ajdkp.SendPlaceBid(auction_id, spec, amt, master_looter)
 end
 
 function ajdkp.HandlePlaceBid(auction_id, spec, amt, character)
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
     local auction = ajdkp.AUCTIONS[auction_id];
     if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
         ajdkp.InsertNewBid(auction.bids, {spec, amt, character});
@@ -282,6 +297,7 @@ function ajdkp.SendRejectBid(auction_id, target)
 end
 
 function ajdkp.HandleRejectBid(auction_id)
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
     print("your bid was rejected by the master looter");
 end
 
@@ -290,6 +306,7 @@ function ajdkp.SendCancelAuction(auction_id)
 end
 
 function ajdkp.HandleCancelAuction(auction_id)
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
     local bid_frame = _G[string.format("BidFrame%d", auction_id)];
     if bid_frame then
         bid_frame:Hide();
@@ -321,6 +338,7 @@ function ajdkp.SendPass(auction_id, master_looter)
 end
 
 function ajdkp.HandlePass(auction_id, character)
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
     local auction = ajdkp.AUCTIONS[auction_id];
     if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
         ajdkp.Remove(auction.outstanding, character);
@@ -343,46 +361,67 @@ function ajdkp.HandleConfirmBid(spec, amt, item_link)
     print(string.format("Your bid (%d %s) for %s was received", amt, spec, item_link));
 end
 
+function ajdkp.SendGetNextAuctionId()
+    C_ChatInfo.SendAddonMessage("AJDKP", "08", "GUILD");
+end
+
+function ajdkp.HandleGetNextAuctionId(target)
+    ajdkp.SendGiveNextAuctionId(target);
+end
+
+function ajdkp.HandleGiveNextAuctionId(next_auciton_id)
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, next_auciton_id);
+end
+
+function ajdkp.SendGiveNextAuctionId(target)
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("09 %d", NEXT_AUCTION_ID), "WHISPER", target);
+end
+
 -- Frame used to receive addon messages
 local EVENT_FRAME = CreateFrame("FRAME", nil, UIParent);
 EVENT_FRAME:RegisterEvent("CHAT_MSG_ADDON");
-EVENT_FRAME:RegisterEvent("ADDON_LOADED");
+EVENT_FRAME:RegisterEvent("PLAYER_LOGIN");
 C_ChatInfo.RegisterAddonMessagePrefix("AJDKP");
 EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
+    if event == "PLAYER_LOGIN" then
+        ajdkp.SendCheckAuctions();
+        ajdkp.SendGetNextAuctionId();
+        return
+    end
     local prefix, message, distribution, sender = ...;
-    if prefix and string.upper(prefix) == "AJDKP" then
-        if event == "ADDON_LOADED" then
-            ajdkp.SendCheckAuctions();
-        elseif event == "CHAT_MSG_ADDON" then
-            local msg_type = message:sub(1, 2)
-            if msg_type == "00" then
-                for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
-                    ajdkp.HandleStartAuction(auction_id, item_link, sender);
-                end
-            elseif msg_type == "01" then
-                for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
-                    ajdkp.HandleResumeAuction(tonumber(auction_id), item_link, sender, tonumber(remaining_time));
-                end
-            elseif msg_type == "02" then
-                for auction_id, spec, amt in string.gmatch(message:sub(4), "(%d+) (%d) (%d+)") do
-                    ajdkp.HandlePlaceBid(tonumber(auction_id), tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
-                end
-            elseif msg_type == "03" then
-                local auction_id = tonumber(message:sub(4));
-                ajdkp.HandleRejectBid(auction_id);
-            elseif msg_type == "04" then
-                local auction_id = tonumber(message:sub(4));
-                ajdkp.HandleCancelAuction(auction_id);
-            elseif msg_type == "05" then
-                ajdkp.HandleCheckAuctions(sender);
-            elseif msg_type == "06" then
-                local auction_id = tonumber(message:sub(4));
-                ajdkp.HandlePass(auction_id, ajdkp.StripRealm(sender));
-            elseif msg_type == "07" then
-                for spec, amt, item_link in string.gmatch(message:sub(4), "(%d) (%d+) (.+)") do
-                    ajdkp.HandleConfirmBid(tonumber(spec), tonumber(amt), item_link);
-                end
+    if prefix and string.upper(prefix) == "AJDKP" and event == "CHAT_MSG_ADDON" then
+        local msg_type = message:sub(1, 2)
+        if msg_type == "00" then
+            for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
+                ajdkp.HandleStartAuction(auction_id, item_link, sender);
             end
+        elseif msg_type == "01" then
+            for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
+                ajdkp.HandleResumeAuction(tonumber(auction_id), item_link, sender, tonumber(remaining_time));
+            end
+        elseif msg_type == "02" then
+            for auction_id, spec, amt in string.gmatch(message:sub(4), "(%d+) (%d) (%d+)") do
+                ajdkp.HandlePlaceBid(tonumber(auction_id), tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
+            end
+        elseif msg_type == "03" then
+            local auction_id = tonumber(message:sub(4));
+            ajdkp.HandleRejectBid(auction_id);
+        elseif msg_type == "04" then
+            local auction_id = tonumber(message:sub(4));
+            ajdkp.HandleCancelAuction(auction_id);
+        elseif msg_type == "05" then
+            ajdkp.HandleCheckAuctions(sender);
+        elseif msg_type == "06" then
+            local auction_id = tonumber(message:sub(4));
+            ajdkp.HandlePass(auction_id, ajdkp.StripRealm(sender));
+        elseif msg_type == "07" then
+            for spec, amt, item_link in string.gmatch(message:sub(4), "(%d) (%d+) (.+)") do
+                ajdkp.HandleConfirmBid(tonumber(spec), tonumber(amt), item_link);
+            end
+        elseif msg_type == "08" then
+            ajdkp.HandleGetNextAuctionId(sender);
+        elseif msg_type == "09" then
+            ajdkp.HandleGiveNextAuctionId(tonumber(message:sub(4)));
         end
     end
 end);
@@ -398,8 +437,22 @@ end
 
 
 -- TODO: create a frame pool and position the frames based on how many frames are being opened simultaneously
+--       use CreateFramePool to manage the frames.
+--       move as much of the layout of the frame as possible into the xml and just modify the values (name, icon, etc)
+--       when receiving a frame from the pool, set a field on it for the auction id
+--       figure out how to associate real scripts from xml
+--       FramePool does name the frames, how do we interact with them, elements can be named in the xml but if what does $parent do if the main frame is nil?
+
 -- TODO: recognize if there are two of the same item being auctioned and show just one window and give them to the two highest
 -- TODO: if multiple people start auctions the ids may conflict (this includes someone reloading since it resets their auction id)
 -- TODO: disable bidding on items the user can't equip
--- TODO: preserve the location where the user dragged the windows
 -- TODO: normalize frame strata
+-- TODO: add a tooltip showing who hasn't bid
+-- TODO: widen the ML frame slightly
+-- TODO: improve anchors/points so the frames are more easily modified
+-- TODO: consider a "to-be-distributed" list with "x"s and won auctions go there
+-- TODO: send the minimum bid with StartAuction so only the ML needs to update if we change prices
+-- TODO: change GET_NEXT_AUCTION_ID to some kind of welcome message including your addon version
+--       everyone else responds with their addon version and their next_auction_id
+--       this will let us make a display of who in a raid doesn't have the addon and what version everyone's on
+-- TODO: allow item comparisons by holding shift

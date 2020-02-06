@@ -25,7 +25,12 @@
         <Scripts>
             <OnLoad>self:RegisterForDrag("LeftButton");</OnLoad>
             <OnDragStart>self:StartMoving();</OnDragStart>
-            <OnDragStop>self:StopMovingOrSizing();</OnDragStop>
+            <OnDragStop>
+                self:StopMovingOrSizing();
+                local _, _, _, x, y = self:GetPoint()
+                AJDKP_FRAME_POSITIONS[self:GetName()] = {x, y};
+                print("saved position:", AJDKP_FRAME_POSITIONS[self:GetName()][1], AJDKP_FRAME_POSITIONS[self:GetName()][2]);
+            </OnDragStop>
         </Scripts>
     </Frame>
 
@@ -99,7 +104,12 @@
         <Scripts>
             <OnLoad>self:RegisterForDrag("LeftButton");</OnLoad>
             <OnDragStart>self:StartMoving();</OnDragStart>
-            <OnDragStop>self:StopMovingOrSizing();</OnDragStop>
+            <OnDragStop>
+                self:StopMovingOrSizing();
+                local _, _, _, x, y = self:GetPoint()
+                AJDKP_FRAME_POSITIONS[self:GetName()] = {x, y};
+                print("saved position:", AJDKP_FRAME_POSITIONS[self:GetName()][1], AJDKP_FRAME_POSITIONS[self:GetName()][2]);
+            </OnDragStop>
         </Scripts>
     </Frame>
 </Ui>

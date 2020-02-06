@@ -1,5 +1,6 @@
 ## Interface: 11303
 ## Title: AJDkp
+## SavedVariablesPerCharacter: AJDKP_FRAME_POSITIONS
 ## Author: AJPrax
 ## Version: 0.1
 
