@@ -1,51 +1,16 @@
 local _, ajdkp = ...
 
-local function ColorGradient(perc)
-    if perc >= 1 then
+local function ColorGradient(p)
+    if p >= 1 then
         return 0, 1, 0
-    elseif perc <= 0 then
+    elseif p <= 0 then
         return 1, 0, 0
     end
-    return 1-perc, perc, 0
+    return 1- p, p, 0
 end
 
-local function MakeTexture(texture_id, frame, hide)
-    local texture = frame:CreateTexture("$parentTexture");
-    texture:SetTexture(texture_id);
-    texture:SetAllPoints(frame);
-    if hide then
-        texture:Hide();
-    end
-    return texture
-end
-
-local function CreateCountdownBar(frame, width, remaining_time, max_time)
-    local statusbar = CreateFrame("StatusBar", "$parentCountdownBar", frame);
-    statusbar:SetPoint("BOTTOM", frame, "BOTTOM", 0, 4);
-    statusbar:SetWidth(width);
-    statusbar:SetHeight(10);
-    statusbar:SetStatusBarTexture("Interface\\TARGETINGFRAME\\UI-StatusBar");
-    statusbar:GetStatusBarTexture():SetHorizTile(false);
-    statusbar:GetStatusBarTexture():SetVertTile(false);
-    statusbar:SetStatusBarColor(0, 0.65, 0);
-    statusbar:SetMinMaxValues(0, max_time);
-
-    statusbar.bg = statusbar:CreateTexture(nil, "BACKGROUND");
-    statusbar.bg:SetTexture("Interface\\TARGETINGFRAME\\UI-StatusBar");
-    statusbar.bg:SetAllPoints(true);
-    statusbar.bg:SetVertexColor(0.2, 0.2, 0.2);
-
-    return statusbar
-end
-
-local function CreateItemIcon(bid_frame, item_link, texture)
-    local icon_frame = CreateFrame("FRAME", "$parentIconFrame", bid_frame);
-    icon_frame:SetHeight(36);
-    icon_frame:SetWidth(36);
-    local icon_texture = MakeTexture(texture, icon_frame);
-    icon_frame.texture = icon_texture;
-    icon_frame:SetPoint("TOPLEFT", bid_frame, "TOPLEFT", 10, -33);
-
+local function SetIconMouseover(bid_frame, item_link)
+    local icon_frame = bid_frame.Icon;
     local tooltip_frame = _G[string.format("%sTooltip", bid_frame:GetName())];
     local function ShowItemTooltip()
         tooltip_frame:SetOwner(UIParent, "ANCHOR_NONE");
@@ -58,25 +23,6 @@ local function CreateItemIcon(bid_frame, item_link, texture)
 
     icon_frame:SetScript("OnEnter", ShowItemTooltip);
     icon_frame:SetScript("OnLeave", HideTooltip);
-end
-
-local function CreateTitleText(bid_frame, item_name)
-    local title = bid_frame:CreateFontString("$parentTitle", "BACKGROUND", "ChatFontNormal");
-    title:SetFont("Fonts\\FRIZQT__.TTF", 12);
-    title:SetText(item_name);
-    title:SetPoint("TOPLEFT", bid_frame, "TOPLEFT", 5, -5);
-end
-
-local function CreateOutstandingBiddersText(ml_frame)
-    local text = ml_frame:CreateFontString("$parentOutstandingBidders", "BACKGROUND", "ChatFontNormal");
-    text:SetFont("Fonts\\FRIZQT__.TTF", 12);
-    text:SetPoint("BOTTOMLEFT", ml_frame, "BOTTOMLEFT", 20, 46);
-end
-
-local function CreateCurrentDKPText(bid_frame)
-    local current_dkp_text = bid_frame:CreateFontString(string.format("%sCurrentDKP", bid_frame:GetName()), "BACKGROUND", "ChatFontNormal");
-    current_dkp_text:SetFont("Fonts\\FRIZQT__.TTF", 12);
-    current_dkp_text:SetPoint("LEFT", _G[string.format("%sBidAmount", bid_frame:GetName())], "RIGHT", 5, 0);
 end
 
 function ajdkp.GetCloseButton(frame)
@@ -92,18 +38,9 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
     if bid_frame then
         -- this may not be the same actual auction, so update the icon texture and name
         local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
-        local title = _G[string.format("BidFrame%dTitle", auction_id)];
-        if title then
-            title:SetText(name);
-        else
-            CreateTitleText(bid_frame, name);
-        end
-        local texture = _G[string.format("BidFrame%dIconFrameTexture")];
-        if texture then
-            texture:SetTexture(GetItemIcon(id));
-        else
-            CreateItemIcon(bid_frame, item_link, GetItemIcon(id));
-        end
+        bid_frame.Title:SetText(name);
+        bid_frame.Icon.Texture:SetTexture(GetItemIcon(id));
+        SetIconMouseover(bid_frame, item_link);
         -- if a bid is rejected the old frame will be sitting around ready to reuse
         bid_frame:Show();
     else
@@ -114,12 +51,10 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
             UIParent,
             "BidFrameTemplate"
         )
-        -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
-        CreateCountdownBar(bid_frame, 160, remaining_time, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
         local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
-        CreateItemIcon(bid_frame, item_link, GetItemIcon(id));
-        CreateTitleText(bid_frame, name);
-        CreateCurrentDKPText(bid_frame);
+        SetIconMouseover(bid_frame, item_link);
+        bid_frame.Title:SetText(name);
+        bid_frame.Icon.Texture:SetTexture(GetItemIcon(id));
     end
 
     local saved_position = AJDKP_FRAME_POSITIONS[bid_frame:GetName()];
@@ -129,35 +64,31 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
         local x_offset = ((auction_id % 4) - 1.5) * 200
         bid_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -150);
     end
-    local bid_input = _G[string.format("BidFrame%dBidAmount", auction_id)];
-    local ms_button = _G[string.format("BidFrame%dMSButton", auction_id)];
-    local os_button = _G[string.format("BidFrame%dOSButton", auction_id)];
     local pass_button = ajdkp.GetCloseButton(bid_frame);
-    local current_dkp_text = _G[string.format("BidFrame%dCurrentDKP", auction_id)];
 
-    bid_input:SetScript("OnTextChanged", function()
-        if ajdkp.IsValidBid(player, bid_input:GetNumber()) then
-            ms_button:Enable();
-            os_button:Enable();
+    bid_frame.BidAmount:SetScript("OnTextChanged", function()
+        if ajdkp.IsValidBid(player, bid_frame.BidAmount:GetNumber()) then
+            bid_frame.MS:Enable();
+            bid_frame.OS:Enable();
         else
-            ms_button:Disable();
-            os_button:Disable();
+            bid_frame.MS:Disable();
+            bid_frame.OS:Disable();
         end
     end);
-    ms_button:SetScript("OnClick", function()
+    bid_frame.MS:SetScript("OnClick", function()
         ajdkp.SendPlaceBid(
             auction_id,
             ajdkp.CONSTANTS.MS,
-            bid_input:GetNumber(),
+            bid_frame.BidAmount:GetNumber(),
             master_looter
         );
         bid_frame:Hide();
     end);
-    os_button:SetScript("OnClick", function()
+    bid_frame.OS:SetScript("OnClick", function()
         ajdkp.SendPlaceBid(
             auction_id,
             ajdkp.CONSTANTS.OS,
-            bid_input:GetNumber(),
+            bid_frame.BidAmount:GetNumber(),
             master_looter
         )
         bid_frame:Hide();
@@ -177,15 +108,9 @@ function ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_ti
             ajdkp.SendPass(auction_id, master_looter);
             bid_frame:Hide();
         end
-        current_dkp_text:SetText(string.format("/ %d", ajdkp.GetDKP(player)));
+        bid_frame.CurrentDKP:SetText(string.format("/ %d", ajdkp.GetDKP(player)));
     end
     bid_frame:SetScript("OnUpdate", bid_frame.OnUpdate);
-end
-
-local function CreateBidListFrame(ml_frame)
-    local list_frame = CreateFrame("FRAME", "$parentBidderList", ml_frame);
-    list_frame:SetPoint("TOPRIGHT", ml_frame, "TOPRIGHT", -10, -33);
-    list_frame:SetSize(180, 0);
 end
 
 function ajdkp.CreateMLFrame(auction_id, item_link)
@@ -204,12 +129,10 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
         local x_offset = ((auction_id % 4) - 1.5) * 300
         ml_frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
     end
-    CreateCountdownBar(ml_frame, ml_frame:GetWidth() - 8, ajdkp.CONSTANTS.AUCTION_DURATION, ajdkp.CONSTANTS.AUCTION_DURATION);
     local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
-    CreateItemIcon(ml_frame, item_link, GetItemIcon(id));
-    CreateTitleText(ml_frame, name);
-    CreateOutstandingBiddersText(ml_frame);
-    CreateBidListFrame(ml_frame);
+    SetIconMouseover(ml_frame, item_link);
+    ml_frame.Title:SetText(name);
+    ml_frame.Icon.Texture:SetTexture(GetItemIcon(id));
     local close_button = ajdkp.GetCloseButton(ml_frame);
     close_button:SetScript("OnClick", function()
         ajdkp.CancelAuction(auction_id);
@@ -254,8 +177,8 @@ function ajdkp.CreateMLFrame(auction_id, item_link)
     end
 
     local function UpdateBidderList(num_old_bids, new_bids, num_outstanding_bids)
-        _G[string.format("MLFrame%dOutstandingBidders", auction_id)]:SetText(tostring(num_outstanding_bids));
-        local list_frame = _G[string.format("MLFrame%dBidderList", auction_id)];
+        ml_frame.OutstandingBiddersCount:SetText(tostring(num_outstanding_bids));
+        local list_frame = ml_frame.BidderList;
         local num_new_bids = #new_bids;
         list_frame:SetHeight(15 * num_new_bids);
         ml_frame:SetHeight(88 + 15 * (math.max(3, table.getn(new_bids))));

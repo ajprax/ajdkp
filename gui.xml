@@ -1,10 +1,11 @@
 <Ui>
+    <Font name="Fritz12" font="Fonts\FRIZQT__.TTF" height="12"/>
     <Frame
-            name="MLFrameTemplate"
-            parent="UIParent"
-            movable="true"
-            virtual="true"
-            inherits="BasicFrameTemplate"
+        name="MLFrameTemplate"
+        parent="UIParent"
+        movable="true"
+        virtual="true"
+        inherits="BasicFrameTemplate"
     >
         <Size x="240" y="128"/>
         <Anchors>
@@ -14,13 +15,61 @@
         <Frames>
             <GameTooltip name="$parentTooltip" inherits="GameTooltipTemplate"/>
 
+            <Frame parentKey="Icon">
+                <Size x="36" y="36"/>
+                <Anchors>
+                    <Anchor point="TOPLEFT" x="10" y="-33"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="OVERLAY">
+                        <Texture parentKey="Texture" file="Interface\PaperDoll\UI-Backpack-EmptySlot">
+                            <Size x="36" y="36" />
+                            <Anchors>
+                                <Anchor point="CENTER"/>
+                            </Anchors>
+                        </Texture>
+                    </Layer>
+                </Layers>
+            </Frame>
+
+            <Frame parentKey="BidderList" name="$parentBidderList">
+                <Size x="180" y="0"/>
+                <Anchors>
+                    <Anchor point="TOPRIGHT" x="-10" y="-33"/>
+                </Anchors>
+            </Frame>
+
             <Button name="$parentDeclareWinnerButton" text="Declare Winner" inherits="UIPanelButtonTemplate">
                 <Size x="220" y="20"/>
                 <Anchors>
                     <Anchor point="BOTTOMRIGHT" x="-10" y="20"/>
                 </Anchors>
             </Button>
+
+            <StatusBar name="$parentCountdownBar" minValue="0" maxValue="190">
+                <BarTexture file="Interface/TargetingFrame/UI-StatusBar"/>
+                <Size x="0" y="10"/>
+                <Anchors>
+                    <Anchor point="BOTTOMLEFT" x="4" y="4"/>
+                    <Anchor point="BOTTOMRIGHT" x="-4" y="4"/>
+                </Anchors>
+            </StatusBar>
         </Frames>
+
+        <Layers>
+            <Layer level="OVERLAY">
+                <FontString parentKey="Title" inherits="Fritz12">
+                    <Anchors>
+                        <Anchor point="TOPLEFT" x="5" y="-5"/>
+                    </Anchors>
+                </FontString>
+                <FontString parentKey="OutstandingBiddersCount" inherits="Fritz12">
+                    <Anchors>
+                        <Anchor point="BOTTOMLEFT" x="20" y="46"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
 
         <Scripts>
             <OnLoad>self:RegisterForDrag("LeftButton");</OnLoad>
@@ -50,7 +99,24 @@
         <Frames>
             <GameTooltip name="$parentTooltip" inherits="GameTooltipTemplate"/>
 
-            <EditBox name="$parentBidAmount" letters="4" autofocus="false" numeric="true">
+            <Frame parentKey="Icon">
+                <Size x="36" y="36"/>
+                <Anchors>
+                    <Anchor point="TOPLEFT" x="10" y="-33"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="OVERLAY">
+                        <Texture parentKey="Texture" file="Interface\PaperDoll\UI-Backpack-EmptySlot">
+                            <Size x="36" y="36" />
+                            <Anchors>
+                                <Anchor point="CENTER"/>
+                            </Anchors>
+                        </Texture>
+                    </Layer>
+                </Layers>
+            </Frame>
+
+            <EditBox name="$parentBidAmount" parentKey="BidAmount" letters="4" autofocus="false" numeric="true">
                 <Size x="45" y="20"/>
                 <Anchors>
                     <Anchor point="TOPRIGHT">
@@ -87,19 +153,44 @@
                 </Scripts>
             </EditBox>
 
-            <Button name="$parentMSButton" text="MS" inherits="UIPanelButtonTemplate">
+            <Button name="$parentMSButton" parentKey="MS" text="MS" inherits="UIPanelButtonTemplate">
                 <Size x="50" y="20"/>
                 <Anchors>
                     <Anchor point="BOTTOMRIGHT" x="-64" y="20"/>
                 </Anchors>
             </Button>
-            <Button name="$parentOSButton" text="OS" inherits="UIPanelButtonTemplate">
+            <Button name="$parentOSButton" parentKey="OS" text="OS" inherits="UIPanelButtonTemplate">
                 <Size x="50" y="20"/>
                 <Anchors>
                     <Anchor point="BOTTOMRIGHT" x="-10" y="20"/>
                 </Anchors>
             </Button>
+
+            <StatusBar name="$parentCountdownBar" minValue="0" maxValue="180">
+                <BarTexture file="Interface/TargetingFrame/UI-StatusBar"/>
+                <Size x="0" y="10"/>
+                <Anchors>
+                    <Anchor point="BOTTOMLEFT" x="4" y="4"/>
+                    <Anchor point="BOTTOMRIGHT" x="-4" y="4"/>
+                </Anchors>
+            </StatusBar>
         </Frames>
+
+        <Layers>
+            <Layer level="OVERLAY">
+                <FontString parentKey="Title" inherits="Fritz12">
+                    <Anchors>
+                        <Anchor point="TOPLEFT" x="5" y="-5"/>
+                    </Anchors>
+                </FontString>
+
+                <FontString parentKey="CurrentDKP" inherits="Fritz12">
+                    <Anchors>
+                        <Anchor point="LEFT" relativeKey="$parent.BidAmount" relativePoint="RIGHT" x="5" y="0"/>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
 
         <Scripts>
             <OnLoad>self:RegisterForDrag("LeftButton");</OnLoad>

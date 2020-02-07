@@ -475,7 +475,6 @@ end
 -- TODO: improve anchors/points so the frames are more easily modified
 -- TODO: consider a "to-be-distributed" list with "x"s and won auctions go there
 -- TODO: send the minimum bid with StartAuction so only the ML needs to update if we change prices
--- TODO: change GET_NEXT_AUCTION_ID to some kind of welcome message including your addon version
---       everyone else responds with their addon version and their next_auction_id
---       this will let us make a display of who in a raid doesn't have the addon and what version everyone's on
 -- TODO: allow item comparisons by holding shift
+-- TODO: record the version numbers for GREET and WELCOME and add a command to show people on newer and older versions than the player
+-- TODO: Add a downgrade to os button (or an upgrade to MS depending on the current bid). message the bidder telling them their bid has been changed
