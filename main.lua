@@ -90,6 +90,262 @@ ajdkp.CONSTANTS.CONFIRM_BID = "07";
 ajdkp.CONSTANTS.GREET = "08";
 ajdkp.CONSTANTS.WELCOME = "09";
 
+------------
+-- FRAMES --
+------------
+
+-- frame pools
+local nextMLFrame = 1;
+local AvailableMLFrames = {};
+local nextBidFrame = 1;
+local AvailableBidFrames = {};
+
+function ajdkp.ColorGradient(p)
+    if p >= 1 then
+        return 0, 1, 0
+    elseif p <= 0 then
+        return 1, 0, 0
+    end
+    return 1- p, p, 0
+end
+
+function ajdkp.GetCloseButton(frame)
+    local kids = { frame:GetChildren() };
+    for _, child in ipairs(kids) do
+        return child
+    end
+end
+
+function ajdkp.SetIconMouseover(bid_frame, item_link)
+    local icon_frame = bid_frame.Icon;
+    local tooltip_frame = _G[string.format("%sTooltip", bid_frame:GetName())];
+    local function ShowItemTooltip()
+        tooltip_frame:SetOwner(UIParent, "ANCHOR_NONE");
+        tooltip_frame:SetPoint("BOTTOMRIGHT", icon_frame, "TOPLEFT");
+        tooltip_frame:SetHyperlink(item_link);
+    end
+    local function HideTooltip()
+        tooltip_frame:Hide();
+    end
+
+    icon_frame:SetScript("OnEnter", ShowItemTooltip);
+    icon_frame:SetScript("OnLeave", HideTooltip);
+end
+
+function ajdkp.InitMLFrame(frame)
+    local auction = ajdkp.AUCTIONS[frame.auction_id];
+    local _, _, id, name = string.find(auction.item_link, ".*item:(%d+).-%[(.-)%]|h|r");
+    ajdkp.SetIconMouseover(frame, auction.item_link);
+    frame.Title:SetText(name);
+    frame.Icon.Texture:SetTexture(GetItemIcon(id));
+    frame:Show();
+end
+
+function ajdkp.GetOrCreateMLFrame(auction_id)
+    local frame;
+    if not (#AvailableMLFrames == 0) then
+        frame = table.remove(AvailableMLFrames);
+        frame.auction_id = auction_id;
+    else
+        -- reserve a frame id
+        local id = nextMLFrame;
+        nextMLFrame = nextMLFrame + 1;
+        local name = string.format("MLFrame%d", id);
+        -- instantiate the frame
+        frame = CreateFrame("FRAME", name, UIParent, "MLFrameTemplate");
+        frame.auction_id = auction_id;
+        -- restore the saved position
+        local saved_position = AJDKP_FRAME_POSITIONS[name];
+        if saved_position then
+            print("restoring saved position", frame:GetName(), unpack(saved_position));
+            local point, relative_point, x, y = unpack(saved_position);
+            frame:SetPoint(point, UIParent, relative_point, x, y);
+        else
+            print("setting new position", frame:GetName());
+            local x_offset = ((frame.auction_id % 4) - 1.5) * 300
+            frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
+        end
+        -- link the buttons
+        ajdkp.GetCloseButton(frame):SetScript("OnClick", function() ajdkp.CancelAuction(frame.auction_id) end);
+        frame.DeclareWinner:SetScript("OnClick", function () ajdkp.DeclareWinner(frame.auction_id) end);
+        -- listen for updates (bids, time ticking down)
+        local previous_bid_count = 0;
+        local function GetOrCreateBidRow(i)
+            local row = _G[string.format("%sBidderListRow%d", frame:GetName(), i)];
+            if not row then
+                row = CreateFrame("FRAME", string.format("$parentRow%d", i), frame.BidderList);
+                row:SetSize(180, 15);
+                row:SetPoint("TOPLEFT", frame.BidderList, "TOPLEFT", 5, 12 + (-15 * i));
+                local spec = row:CreateFontString();
+                row.spec = spec;
+                spec:SetFont("Fonts\\FRIZQT__.TTF", 12);
+                spec:SetPoint("TOPLEFT", row, "TOPLEFT");
+                local amt = row:CreateFontString();
+                row.amt = amt;
+                amt:SetFont("Fonts\\FRIZQT__.TTF", 12);
+                amt:SetPoint("TOPLEFT", row, "TOPLEFT", 30, 0);
+                local bidder = row:CreateFontString();
+                row.bidder = bidder;
+                bidder:SetFont("Fonts\\FRIZQT__.TTF", 12);
+                bidder:SetPoint("TOPLEFT", row, "TOPLEFT", 70, 0);
+                local cancel = CreateFrame("Button", nil, row, "UIPanelCloseButtonNoScripts");
+                row.cancel = cancel;
+                cancel:SetSize(20, 20);
+                cancel:SetPoint("TOPLEFT", row, "TOPLEFT", 150, 4);
+            end
+            return row
+        end
+        frame:SetScript("OnUpdate", function(self, sinceLastUpdate)
+            -- update the time reamining
+            ajdkp.AUCTIONS[frame.auction_id].remaining_time = ajdkp.AUCTIONS[frame.auction_id].remaining_time - sinceLastUpdate;
+            local remaining_seconds = math.ceil(ajdkp.AUCTIONS[frame.auction_id].remaining_time);
+            frame.CountdownBar:SetValue(remaining_seconds);
+            frame.CountdownBar:SetStatusBarColor(ajdkp.ColorGradient(ajdkp.AUCTIONS[frame.auction_id].remaining_time / ajdkp.CONSTANTS.AUCTION_DURATION));
+            -- when time expires, move the auction to READY_TO_RESOLVE if we haven't already passed that point
+            if remaining_seconds <= 0 then
+                if ajdkp.AUCTIONS[frame.auction_id].state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
+                    ajdkp.AUCTIONS[frame.auction_id].state = ajdkp.CONSTANTS.READY_TO_RESOLVE
+                end
+            end
+            -- update the bids
+            frame.OutstandingBiddersCount:SetText(tostring(#ajdkp.AUCTIONS[frame.auction_id].outstanding));
+            frame.BidderList:SetHeight(15 * #ajdkp.AUCTIONS[frame.auction_id].bids);
+            frame:SetHeight(88 + 15 * math.max(3, #ajdkp.AUCTIONS[frame.auction_id].bids));
+            -- set and show bid rows
+            for i, bid in ipairs(ajdkp.AUCTIONS[frame.auction_id].bids) do
+                local coeff, amt, bidder = unpack(bid);
+                local spec = "MS"
+                if coeff == 2 then
+                    spec = "OS"
+                end
+                local row = GetOrCreateBidRow(i);
+                row.spec:SetText(spec);
+                row.amt:SetText(amt);
+                row.bidder:SetText(bidder);
+                row.bidder:SetTextColor(unpack(ajdkp.CONSTANTS.CLASS_COLORS[select(3, UnitClass(bidder))]));
+                row.cancel:SetScript("OnClick", function() ajdkp.RejectBid(frame.auction_id, bidder) end);
+                row:Show();
+            end
+            -- hide excess bid rows
+            if #ajdkp.AUCTIONS[frame.auction_id].bids < previous_bid_count then
+                local extra_rows_count = previous_bid_count - #ajdkp.AUCTIONS[frame.auction_id].bids;
+                for i=math.max(1, previous_bid_count - extra_rows_count),previous_bid_count do
+                    _G[string.format("%sBidderListRow%d", frame:GetName(), i)]:Hide();
+                end
+            end
+            -- current bid count becomes previous for the next frame
+            previous_bid_count = #ajdkp.AUCTIONS[frame.auction_id].bids;
+            -- update the Declare Winner button
+            if ajdkp.AUCTIONS[frame.auction_id].state == ajdkp.CONSTANTS.ACCEPTING_BIDS or ajdkp.AUCTIONS[frame.auction_id].state == ajdkp.CONSTANTS.COMPLETE then
+                frame.DeclareWinner:Disable();
+            elseif ajdkp.AUCTIONS[frame.auction_id].state == ajdkp.CONSTANTS.READY_TO_RESOLVE and #ajdkp.AUCTIONS[frame.auction_id].bids > 0 then
+                frame.DeclareWinner:Enable();
+            elseif ajdkp.AUCTIONS[frame.auction_id].state == ajdkp.CONSTANTS.CANCELED then
+                frame:Hide();
+            end
+        end);
+        -- when the frame is no longer needed, send it back to the frame pool
+        frame:SetScript("OnHide", function()
+            table.insert(AvailableMLFrames, frame); -- TODO: put it in sorted order
+        end);
+    end
+    ajdkp.InitMLFrame(frame);
+end
+
+function ajdkp.InitBidFrame(frame)
+    local _, _, id, name = string.find(frame.item_link, ".*item:(%d+).-%[(.-)%]|h|r");
+    frame.Title:SetText(name);
+    frame.Icon.Texture:SetTexture(GetItemIcon(id));
+    ajdkp.SetIconMouseover(frame, frame.item_link);
+    frame:Show();
+end
+
+function ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaining_time)
+    local frame;
+    if not (#AvailableBidFrames == 0) then
+        frame = table.remove(AvailableBidFrames);
+        frame.auction_id = auction_id;
+        frame.item_link = item_link;
+        frame.master_looter = master_looter;
+        frame.remaining_time = remaining_time;
+    else
+        -- reserve a frame id
+        local id = nextBidFrame;
+        nextBidFrame = nextBidFrame + 1;
+        local name = string.format("BidFrame%d", id);
+        -- instantiate the frame
+        frame = CreateFrame("FRAME", name, UIParent, "BidFrameTemplate");
+        frame.auction_id = auction_id;
+        frame.item_link = item_link;
+        frame.master_looter = master_looter;
+        frame.remaining_time = remaining_time;
+        -- restore the saved position
+        local saved_position = AJDKP_FRAME_POSITIONS[name];
+        if saved_position then
+            print("restoring saved position", frame:GetName(), unpack(saved_position));
+            local point, relative_point, x, y = unpack(saved_position);
+            frame:SetPoint(point, UIParent, relative_point, x, y);
+        else
+            print("setting new position", frame:GetName());
+            local x_offset = ((frame.auction_id % 4) - 1.5) * 200
+            frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -200);
+        end
+
+        local player = ajdkp.StripRealm(UnitName("player"));
+        frame.BidAmount:SetScript("OnTextChanged", function()
+            if ajdkp.IsValidBid(player, frame.BidAmount:GetNumber()) then
+                frame.MS:Enable();
+                frame.OS:Enable();
+            else
+                frame.MS:Disable();
+                frame.OS:Disable();
+            end
+        end);
+        frame.MS:SetScript("OnClick", function()
+            ajdkp.SendPlaceBid(
+                frame.auction_id,
+                ajdkp.CONSTANTS.MS,
+                frame.BidAmount:GetNumber(),
+                frame.master_looter
+            );
+            frame:Hide();
+        end);
+        frame.OS:SetScript("OnClick", function()
+            ajdkp.SendPlaceBid(
+                frame.auction_id,
+                ajdkp.CONSTANTS.OS,
+                frame.BidAmount:GetNumber(),
+                frame.master_looter
+            );
+            frame:Hide();
+        end);
+        ajdkp.GetCloseButton(frame):SetScript("OnClick", function()
+            ajdkp.SendPass(frame.auction_id, frame.master_looter);
+            frame:Hide();
+        end);
+
+        frame:SetScript("OnUpdate", function(self, sinceLastUpdate)
+            frame.remaining_time = frame.remaining_time - sinceLastUpdate;
+            local remaining_seconds = math.ceil(frame.remaining_time);
+            frame.CountdownBar:SetValue(remaining_seconds);
+            frame.CountdownBar:SetStatusBarColor(ajdkp.ColorGradient(frame.remaining_time / (ajdkp.CONSTANTS.AUCTION_DURATION - 10)));
+            if frame.remaining_time <= 0 then
+                ajdkp.SendPass(frame.auction_id, frame.master_looter);
+                frame:Hide();
+            end
+            frame.CurrentDKP:SetText(string.format("/ %d", ajdkp.GetDKP(player)));
+        end);
+        frame:SetScript("OnHide", function()
+            table.insert(AvailableBidFrames, frame); -- TODO: put it in sorted order
+        end);
+    end
+    ajdkp.InitBidFrame(frame);
+end
+
+--------------
+-- Auctions --
+--------------
+
 -- keys are auction ids
 -- values are
 -- {
@@ -115,9 +371,7 @@ local function StartAuction(item_link)
         bids={},
     };
     ajdkp.AUCTIONS[auction_id] = auction;
-
-    ajdkp.CreateMLFrame(auction_id, item_link);
-
+    ajdkp.GetOrCreateMLFrame(auction_id);
     SendChatMessage(string.format("Auction open for %s", auction.item_link) ,"RAID_WARNING");
     ajdkp.SendStartAuction(auction_id, item_link);
 end
@@ -267,7 +521,7 @@ function ajdkp.CancelAuction(auction_id)
     auction.state = ajdkp.CONSTANTS.CANCELED;
     SendChatMessage(string.format("Auction canceled for %s", auction.item_link), "RAID");
     ajdkp.SendCancelAuction(auction_id);
-    ajdkp.HandleCancelAuction(auction_id);
+--    ajdkp.HandleCancelAuction(auction_id);
 end
 
 --------------
@@ -281,7 +535,7 @@ end
 function ajdkp.HandleStartAuction(auction_id, item_link, master_looter)
     NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
     -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
-    ajdkp.CreateBidFrame(auction_id, item_link, master_looter, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
+    ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
 end
 
 function ajdkp.SendResumeAuction(auction_id, item_link, remaining_time, target)
@@ -290,7 +544,7 @@ end
 
 function ajdkp.HandleResumeAuction(auction_id, item_link, master_looter, remaining_time)
     NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
-    ajdkp.CreateBidFrame(auction_id, item_link, master_looter, remaining_time)
+    ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaining_time);
 end
 
 function ajdkp.SendPlaceBid(auction_id, spec, amt, master_looter)
@@ -325,9 +579,12 @@ end
 
 function ajdkp.HandleCancelAuction(auction_id)
     NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
-    local bid_frame = _G[string.format("BidFrame%d", auction_id)];
-    if bid_frame then
-        bid_frame:Hide();
+    for i=1,nextBidFrame do
+        local frame = _G[string.format("BidFrame%d", i)];
+        if frame and (frame.auction_id == auction_id) then
+            frame:Hide();
+            break
+        end
     end
 end
 
@@ -414,7 +671,7 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
         local msg_type = message:sub(1, 2)
         if msg_type == ajdkp.CONSTANTS.START_AUCTION then
             for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
-                ajdkp.HandleStartAuction(auction_id, item_link, sender);
+                ajdkp.HandleStartAuction(tonumber(auction_id), item_link, sender);
             end
         elseif msg_type == ajdkp.CONSTANTS.RESUME_AUCTION then
             for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
@@ -443,7 +700,7 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
             ajdkp.HandleGreet(sender, message:sub(4));
         elseif msg_type == ajdkp.CONSTANTS.WELCOME then
             for next_auction_id, version in string.gmatch(message:sub(4), "(%d) (.*)") do
-                ajdkp.HandleWelcome(next_auction_id, version);
+                ajdkp.HandleWelcome(tonumber(next_auction_id), version);
             end
         end
     end
@@ -458,16 +715,7 @@ SlashCmdList["AJDKP"] = function(msg)
 end
 
 
-
--- TODO: create a frame pool and position the frames based on how many frames are being opened simultaneously
---       use CreateFramePool to manage the frames.
---       move as much of the layout of the frame as possible into the xml and just modify the values (name, icon, etc)
---       when receiving a frame from the pool, set a field on it for the auction id
---       figure out how to associate real scripts from xml
---       FramePool does name the frames, how do we interact with them, elements can be named in the xml but if what does $parent do if the main frame is nil?
-
 -- TODO: recognize if there are two of the same item being auctioned and show just one window and give them to the two highest
--- TODO: if multiple people start auctions the ids may conflict (this includes someone reloading since it resets their auction id)
 -- TODO: disable bidding on items the user can't equip
 -- TODO: normalize frame strata
 -- TODO: add a tooltip showing who hasn't bid

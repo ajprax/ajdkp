@@ -39,14 +39,14 @@
                 </Anchors>
             </Frame>
 
-            <Button name="$parentDeclareWinnerButton" text="Declare Winner" inherits="UIPanelButtonTemplate">
+            <Button name="$parentDeclareWinnerButton" parentKey="DeclareWinner" text="Declare Winner" inherits="UIPanelButtonTemplate">
                 <Size x="220" y="20"/>
                 <Anchors>
                     <Anchor point="BOTTOMRIGHT" x="-10" y="20"/>
                 </Anchors>
             </Button>
 
-            <StatusBar name="$parentCountdownBar" minValue="0" maxValue="190">
+            <StatusBar name="$parentCountdownBar" parentKey="CountdownBar" minValue="0" maxValue="190">
                 <BarTexture file="Interface/TargetingFrame/UI-StatusBar"/>
                 <Size x="0" y="10"/>
                 <Anchors>
@@ -76,9 +76,9 @@
             <OnDragStart>self:StartMoving();</OnDragStart>
             <OnDragStop>
                 self:StopMovingOrSizing();
-                local _, _, _, x, y = self:GetPoint()
-                AJDKP_FRAME_POSITIONS[self:GetName()] = {x, y};
-                print("saved position:", AJDKP_FRAME_POSITIONS[self:GetName()][1], AJDKP_FRAME_POSITIONS[self:GetName()][2]);
+                local point, _, relative_point, x, y = self:GetPoint()
+                AJDKP_FRAME_POSITIONS[self:GetName()] = {point, relative_point, x, y};
+                print("saved position:", self:GetName(), unpack(AJDKP_FRAME_POSITIONS[self:GetName()]));
             </OnDragStop>
         </Scripts>
     </Frame>
@@ -166,7 +166,7 @@
                 </Anchors>
             </Button>
 
-            <StatusBar name="$parentCountdownBar" minValue="0" maxValue="180">
+            <StatusBar name="$parentCountdownBar" parentKey="CountdownBar" minValue="0" maxValue="180">
                 <BarTexture file="Interface/TargetingFrame/UI-StatusBar"/>
                 <Size x="0" y="10"/>
                 <Anchors>
@@ -197,9 +197,9 @@
             <OnDragStart>self:StartMoving();</OnDragStart>
             <OnDragStop>
                 self:StopMovingOrSizing();
-                local _, _, _, x, y = self:GetPoint()
-                AJDKP_FRAME_POSITIONS[self:GetName()] = {x, y};
-                print("saved position:", AJDKP_FRAME_POSITIONS[self:GetName()][1], AJDKP_FRAME_POSITIONS[self:GetName()][2]);
+                local point, _, relative_point, x, y = self:GetPoint()
+                AJDKP_FRAME_POSITIONS[self:GetName()] = {point, relative_point, x, y};
+                print("saved position:", self:GetName(), unpack(AJDKP_FRAME_POSITIONS[self:GetName()]));
             </OnDragStop>
         </Scripts>
     </Frame>

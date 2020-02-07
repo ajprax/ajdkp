@@ -6,5 +6,4 @@
 
 gui.xml
 utils.lua
-gui.lua
 main.lua
