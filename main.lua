@@ -4,7 +4,7 @@ local _, ajdkp = ...
 AJDKP_FRAME_POSITIONS = {};
 
 ajdkp.CONSTANTS = {};
-ajdkp.CONSTANTS.VERSION = "0.1.0";
+ajdkp.CONSTANTS.VERSION = "0.1.1";
 
 ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
@@ -157,11 +157,9 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
         -- restore the saved position
         local saved_position = AJDKP_FRAME_POSITIONS[name];
         if saved_position then
-            print("restoring saved position", frame:GetName(), unpack(saved_position));
             local point, relative_point, x, y = unpack(saved_position);
             frame:SetPoint(point, UIParent, relative_point, x, y);
         else
-            print("setting new position", frame:GetName());
             local x_offset = ((frame.auction_id % 4) - 1.5) * 300
             frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
         end
@@ -282,11 +280,9 @@ function ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaini
         -- restore the saved position
         local saved_position = AJDKP_FRAME_POSITIONS[name];
         if saved_position then
-            print("restoring saved position", frame:GetName(), unpack(saved_position));
             local point, relative_point, x, y = unpack(saved_position);
             frame:SetPoint(point, UIParent, relative_point, x, y);
         else
-            print("setting new position", frame:GetName());
             local x_offset = ((frame.auction_id % 4) - 1.5) * 200
             frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -200);
         end

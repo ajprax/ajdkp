@@ -78,7 +78,6 @@
                 self:StopMovingOrSizing();
                 local point, _, relative_point, x, y = self:GetPoint()
                 AJDKP_FRAME_POSITIONS[self:GetName()] = {point, relative_point, x, y};
-                print("saved position:", self:GetName(), unpack(AJDKP_FRAME_POSITIONS[self:GetName()]));
             </OnDragStop>
         </Scripts>
     </Frame>
@@ -199,7 +198,6 @@
                 self:StopMovingOrSizing();
                 local point, _, relative_point, x, y = self:GetPoint()
                 AJDKP_FRAME_POSITIONS[self:GetName()] = {point, relative_point, x, y};
-                print("saved position:", self:GetName(), unpack(AJDKP_FRAME_POSITIONS[self:GetName()]));
             </OnDragStop>
         </Scripts>
     </Frame>
