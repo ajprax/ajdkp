@@ -574,7 +574,7 @@ function ajdkp.SendStartAuction(auction_id, item_link)
 end
 
 function ajdkp.HandleStartAuction(auction_id, item_link, master_looter)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
     ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
 end
@@ -584,7 +584,7 @@ function ajdkp.SendResumeAuction(auction_id, item_link, remaining_time, target)
 end
 
 function ajdkp.HandleResumeAuction(auction_id, item_link, master_looter, remaining_time)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaining_time);
 end
 
@@ -593,7 +593,7 @@ function ajdkp.SendPlaceBid(auction_id, spec, amt, master_looter)
 end
 
 function ajdkp.HandlePlaceBid(auction_id, spec, amt, character)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     local auction = ajdkp.AUCTIONS[auction_id];
     if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
         ajdkp.InsertNewBid(auction.bids, {spec, amt, character});
@@ -610,7 +610,7 @@ function ajdkp.SendRejectBid(auction_id, target)
 end
 
 function ajdkp.HandleRejectBid(auction_id)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     print("your bid was rejected by the master looter");
 end
 
@@ -619,7 +619,7 @@ function ajdkp.SendCancelAuction(auction_id)
 end
 
 function ajdkp.HandleCancelAuction(auction_id)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     for i=1,nextBidFrame do
         local frame = _G[string.format("BidFrame%d", i)];
         if frame and (frame.auction_id == auction_id) then
@@ -654,7 +654,7 @@ function ajdkp.SendPass(auction_id, master_looter)
 end
 
 function ajdkp.HandlePass(auction_id, character)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id);
+    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     local auction = ajdkp.AUCTIONS[auction_id];
     if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
         ajdkp.Remove(auction.outstanding, character);
