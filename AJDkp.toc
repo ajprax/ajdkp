@@ -1,8 +1,8 @@
 ## Interface: 11303
-## Title: AJDkp
+## Title: AjDKP
 ## SavedVariablesPerCharacter: AJDKP_FRAME_POSITIONS
 ## Author: AJPrax
-## Version: 0.1
+## Version: 0.1.3
 
 gui.xml
 utils.lua

@@ -4,7 +4,7 @@ local _, ajdkp = ...
 AJDKP_FRAME_POSITIONS = {};
 
 ajdkp.CONSTANTS = {};
-ajdkp.CONSTANTS.VERSION = "0.1.1";
+ajdkp.CONSTANTS.VERSION = "0.1.3";
 
 ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
@@ -143,7 +143,7 @@ end
 
 function ajdkp.GetOrCreateMLFrame(auction_id)
     local frame;
-    if not (#AvailableMLFrames == 0) then
+    if #AvailableMLFrames > 0 then
         frame = table.remove(AvailableMLFrames);
         frame.auction_id = auction_id;
     else
@@ -158,9 +158,10 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
         local saved_position = AJDKP_FRAME_POSITIONS[name];
         if saved_position then
             local point, relative_point, x, y = unpack(saved_position);
+            frame:ClearAllPoints();
             frame:SetPoint(point, UIParent, relative_point, x, y);
         else
-            local x_offset = ((frame.auction_id % 4) - 1.5) * 300
+            local x_offset = ((frame.auction_id % 5) - 2) * 300
             frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
         end
         -- link the buttons
@@ -254,6 +255,7 @@ function ajdkp.InitBidFrame(frame)
     local _, _, id, name = string.find(frame.item_link, ".*item:(%d+).-%[(.-)%]|h|r");
     frame.Title:SetText(name);
     frame.Icon.Texture:SetTexture(GetItemIcon(id));
+    frame.BidAmount:SetText("");
     ajdkp.SetIconMouseover(frame, frame.item_link);
     frame:Show();
 end
@@ -281,10 +283,11 @@ function ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaini
         local saved_position = AJDKP_FRAME_POSITIONS[name];
         if saved_position then
             local point, relative_point, x, y = unpack(saved_position);
+            frame:ClearAllPoints();
             frame:SetPoint(point, UIParent, relative_point, x, y);
         else
-            local x_offset = ((frame.auction_id % 4) - 1.5) * 200
-            frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -200);
+            local x_offset = ((frame.auction_id % 5) - 2) * 200
+            frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -100);
         end
 
         local player = ajdkp.StripRealm(UnitName("player"));
@@ -722,3 +725,5 @@ end
 -- TODO: allow item comparisons by holding shift
 -- TODO: record the version numbers for GREET and WELCOME and add a command to show people on newer and older versions than the player
 -- TODO: Add a downgrade to os button (or an upgrade to MS depending on the current bid). message the bidder telling them their bid has been changed
+-- TODO: fix the save/restore placement for ML frames
+-- TODO: change the modulo rotation of default frame positions to 5 instead of 4 since that's the most any boss can drop
