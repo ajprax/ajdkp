@@ -4,7 +4,7 @@ local _, ajdkp = ...
 AJDKP_FRAME_POSITIONS = {};
 
 ajdkp.CONSTANTS = {};
-ajdkp.CONSTANTS.VERSION = "0.1.3";
+ajdkp.CONSTANTS.VERSION = "0.1.4";
 
 ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
@@ -769,3 +769,4 @@ end
 -- TODO: Add a downgrade to os button (or an upgrade to MS depending on the current bid). message the bidder telling them their bid has been changed
 -- TODO: fix the save/restore placement for ML frames
 -- TODO: change the modulo rotation of default frame positions to 5 instead of 4 since that's the most any boss can drop
+-- TODO: make it clearer that OS covers PVP
