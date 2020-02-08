@@ -166,7 +166,7 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
         end
         -- link the buttons
         ajdkp.GetCloseButton(frame):SetScript("OnClick", function() ajdkp.CancelAuction(frame.auction_id) end);
-        frame.DeclareWinner:SetScript("OnClick", function () ajdkp.DeclareWinner(frame.auction_id) end);
+        frame.DeclareWinner:SetScript("OnClick", function () ajdkp.DeclareWinner(frame, frame.auction_id) end);
         -- listen for updates (bids, time ticking down)
         local previous_bid_count = 0;
         local function GetOrCreateBidRow(i)
@@ -358,6 +358,37 @@ ajdkp.AUCTIONS = {};
 
 local NEXT_AUCTION_ID = 1;
 
+-- returns nil if there's not a single winner
+function ajdkp.GetSingleWinner(rolls)
+    local max = 0;
+    local max_count = 0;
+    local max_i = 0;
+    for i, roll in ipairs(rolls) do
+        if roll == max then
+            max_count = max_count + 1;
+        elseif roll > max then
+            max = roll;
+            max_count = 1;
+            max_i = i;
+        end
+    end
+    if max_count == 1 then
+        return max_i
+    end
+end
+
+function ajdkp.RollUntilSingleWinner(bids)
+    local winner_i;
+    local rolls = {};
+    while not winner_i do
+        for i=1,#bids do
+            rolls[i] = math.random(100);
+        end
+        winner_i = ajdkp.GetSingleWinner(rolls);
+    end
+    return bids[winner_i], rolls
+end
+
 local function StartAuction(item_link)
     local auction_id = NEXT_AUCTION_ID;
     NEXT_AUCTION_ID = NEXT_AUCTION_ID + 1;
@@ -383,10 +414,11 @@ local function ReadyToResolve(auction_id)
     return #auction.outstanding == 0
 end
 
-function ajdkp.DeclareWinner(auction_id)
+function ajdkp.DeclareWinner(ml_frame, auction_id)
     local auction = ajdkp.AUCTIONS[auction_id];
     if ajdkp.AUCTIONS[auction_id].state == ajdkp.CONSTANTS.READY_TO_RESOLVE then
-        local spec, amt, character = unpack(ajdkp.DetermineWinner(auction_id));
+        local winning_bid, tied_bids, rolls = ajdkp.DetermineWinner(auction_id);
+        local spec, amt, character = unpack(winning_bid);
         -- the final price can never be less than 10
         amt = math.max(amt, 10);
         if spec == ajdkp.CONSTANTS.MS then
@@ -396,7 +428,16 @@ function ajdkp.DeclareWinner(auction_id)
         end
         if character then
             ajdkp.AUCTIONS[auction_id].state = ajdkp.CONSTANTS.COMPLETE;
-            SendChatMessage(string.format("%s wins %s for %d dkp (%s)", character, auction.item_link, amt, spec) ,"RAID");
+            if tied_bids then
+                SendChatMessage(string.format("Top bid for %s was tied", auction.item_link));
+                -- if there was a tie, announce the rolls
+                for i=1,#tied_bids do
+                    local _, _, character = unpack(tied_bids[i]);
+                    local roll = rolls[i];
+                    SendChatMessage(string.format("Tiebreak Roll - %d by %s", roll, character), "RAID");
+                end
+            end
+            SendChatMessage(string.format("%s wins %s for %d dkp (%s)", character, auction.item_link, amt, spec), "RAID_WARNING");
             -- go through all open auctions and make sure the winner of this auction hasn't bid more than their new dkp
             -- if they have, lower their bid to their new dkp (we presume they'd still be willing to bid that much since
             -- it's less than they've previously said they were willing to pay)
@@ -415,14 +456,13 @@ function ajdkp.DeclareWinner(auction_id)
                 end
             end
             SOTA_Call_SubtractPlayerDKP(character, amt);
-            _G[string.format("MLFrame%dDeclareWinnerButton", auction_id)]:SetText(string.format("%s wins!", character));
-            local ml_frame = _G[string.format("MLFrame%d", auction_id)];
+            ml_frame.DeclareWinner:SetText(character .. "wins!");
             ajdkp.GetCloseButton(ml_frame):SetScript("OnClick", function() ml_frame:Hide() end)
         end
     end
 end
 
--- returns (spec, amt, character)
+-- returns (spec, amt, character), tied bids, tiebreak rolls
 function ajdkp.DetermineWinner(auction_id)
     -- bids are inserted in sorted order so we really just have to look for cases with fewer than 2 bids and ties
     local auction = ajdkp.AUCTIONS[auction_id];
@@ -454,7 +494,8 @@ function ajdkp.DetermineWinner(auction_id)
                     end
                 end
                 -- pick a winner at random among the tied bidders
-                return tied_bids[math.random(#tied_bids)]
+                local winning_bid, rolls = ajdkp.RollUntilSingleWinner(tied_bids);
+                return winning_bid, tied_bids, rolls
             end
         elseif ajdkp.CONSTANTS.PRIORITY_TYPE == ajdkp.CONSTANTS.TWO_TO_ONE then
             local first_bid_weight = ajdkp.BidWeight(auction.bids[1]);
@@ -491,7 +532,8 @@ function ajdkp.DetermineWinner(auction_id)
                         break
                     end
                 end
-                return tied_bids[math.random(#tied_bids)];
+                local winning_bid, rolls = ajdkp.RollUntilSingleWinner(tied_bids);
+                return winning_bid, tied_bids, rolls
             end
         else
             -- TODO: some kind of error
