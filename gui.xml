@@ -13,8 +13,6 @@
         </Anchors>
 
         <Frames>
-            <GameTooltip name="$parentTooltip" inherits="GameTooltipTemplate"/>
-
             <Frame parentKey="Icon">
                 <Size x="36" y="36"/>
                 <Anchors>
@@ -28,6 +26,22 @@
                                 <Anchor point="CENTER"/>
                             </Anchors>
                         </Texture>
+                    </Layer>
+                </Layers>
+            </Frame>
+
+            <Frame parentKey="OutstandingBidders">
+                <Size x="10" y="10"/>
+                <Anchors>
+                    <Anchor point="BOTTOMLEFT" x="20" y="46"/>
+                </Anchors>
+                <Layers>
+                    <Layer level="OVERLAY">
+                        <FontString parentKey="Count" inherits="Fritz12">
+                            <Anchors>
+                                <Anchor point="CENTER"/>
+                            </Anchors>
+                        </FontString>
                     </Layer>
                 </Layers>
             </Frame>
@@ -63,11 +77,7 @@
                         <Anchor point="TOPLEFT" x="5" y="-5"/>
                     </Anchors>
                 </FontString>
-                <FontString parentKey="OutstandingBiddersCount" inherits="Fritz12">
-                    <Anchors>
-                        <Anchor point="BOTTOMLEFT" x="20" y="46"/>
-                    </Anchors>
-                </FontString>
+
             </Layer>
         </Layers>
 
@@ -96,8 +106,6 @@
         </Anchors>
 
         <Frames>
-            <GameTooltip name="$parentTooltip" inherits="GameTooltipTemplate"/>
-
             <Frame parentKey="Icon">
                 <Size x="36" y="36"/>
                 <Anchors>

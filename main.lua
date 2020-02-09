@@ -4,7 +4,7 @@ local _, ajdkp = ...
 AJDKP_FRAME_POSITIONS = {};
 
 ajdkp.CONSTANTS = {};
-ajdkp.CONSTANTS.VERSION = "0.1.4";
+ajdkp.CONSTANTS.VERSION = "0.1.5";
 
 ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
@@ -109,6 +109,12 @@ function ajdkp.ColorGradient(p)
     return 1- p, p, 0
 end
 
+function ajdkp.ColorByClass(player)
+    local r, g, b = unpack(ajdkp.CONSTANTS.CLASS_COLORS[select(3, UnitClass(player))]);
+    local hex = string.format("%02x%02x%02x", r*255, g*255, b*255);
+    return string.format("|cFF%s%s|r", hex, player);
+end
+
 function ajdkp.GetCloseButton(frame)
     local kids = { frame:GetChildren() };
     for _, child in ipairs(kids) do
@@ -116,26 +122,47 @@ function ajdkp.GetCloseButton(frame)
     end
 end
 
-function ajdkp.SetIconMouseover(bid_frame, item_link)
-    local icon_frame = bid_frame.Icon;
-    local tooltip_frame = _G[string.format("%sTooltip", bid_frame:GetName())];
-    local function ShowItemTooltip()
-        tooltip_frame:SetOwner(UIParent, "ANCHOR_NONE");
-        tooltip_frame:SetPoint("BOTTOMRIGHT", icon_frame, "TOPLEFT");
-        tooltip_frame:SetHyperlink(item_link);
-    end
-    local function HideTooltip()
-        tooltip_frame:Hide();
-    end
+function ajdkp.SetIconMouseover(frame)
+    frame.Icon:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(UIParent, "ANCHOR_NONE");
+        GameTooltip:SetPoint("BOTTOMRIGHT", frame.Icon, "TOPLEFT");
+        GameTooltip:SetHyperlink(frame.item_link or ajdkp.AUCTIONS[frame.auction_id].item_link);
+        GameTooltip_ShowCompareItem();
+    end);
+    frame.Icon:SetScript("OnLeave", function()
+        GameTooltip:Hide();
+    end);
+end
 
-    icon_frame:SetScript("OnEnter", ShowItemTooltip);
-    icon_frame:SetScript("OnLeave", HideTooltip);
+function ajdkp.SetOutstandinbBiddersMouseover(frame)
+    frame.OutstandingBidders:SetScript("OnEnter", function()
+        local outstanding = ajdkp.AUCTIONS[frame.auction_id].outstanding;
+        if #outstanding > 0 then
+            GameTooltip:SetOwner(UIParent, "ANCHOR_NONE");
+            GameTooltip:SetPoint("BOTTOMRIGHT", frame.OutstandingBidders, "TOPLEFT");
+            GameTooltip:ClearLines();
+            local text = "Waiting for bids from:\n";
+            for i, player in ipairs(outstanding) do
+                if i == 1 then
+                    text = text .. ajdkp.ColorByClass(player);
+                else
+                    text = text .. ", " .. ajdkp.ColorByClass(player);
+                end
+                if (i % 4) == 0 then
+                    text = text .. "\n";
+                end
+            end
+            GameTooltip:SetText(text);
+        end
+    end);
+    frame.OutstandingBidders:SetScript("OnLeave", function()
+        GameTooltip:Hide();
+    end);
 end
 
 function ajdkp.InitMLFrame(frame)
     local auction = ajdkp.AUCTIONS[frame.auction_id];
     local _, _, id, name = string.find(auction.item_link, ".*item:(%d+).-%[(.-)%]|h|r");
-    ajdkp.SetIconMouseover(frame, auction.item_link);
     frame.Title:SetText(name);
     frame.Icon.Texture:SetTexture(GetItemIcon(id));
     frame:Show();
@@ -164,6 +191,9 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
             local x_offset = ((frame.auction_id % 5) - 2) * 300
             frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
         end
+        -- set the hover tooltips
+        ajdkp.SetIconMouseover(frame);
+        ajdkp.SetOutstandinbBiddersMouseover(frame);
         -- link the buttons
         ajdkp.GetCloseButton(frame):SetScript("OnClick", function() ajdkp.CancelAuction(frame.auction_id) end);
         frame.DeclareWinner:SetScript("OnClick", function () ajdkp.DeclareWinner(frame, frame.auction_id) end);
@@ -207,7 +237,7 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
                 end
             end
             -- update the bids
-            frame.OutstandingBiddersCount:SetText(tostring(#ajdkp.AUCTIONS[frame.auction_id].outstanding));
+            frame.OutstandingBidders.Count:SetText(tostring(#ajdkp.AUCTIONS[frame.auction_id].outstanding));
             frame.BidderList:SetHeight(15 * #ajdkp.AUCTIONS[frame.auction_id].bids);
             frame:SetHeight(88 + 15 * math.max(3, #ajdkp.AUCTIONS[frame.auction_id].bids));
             -- set and show bid rows
@@ -256,7 +286,6 @@ function ajdkp.InitBidFrame(frame)
     frame.Title:SetText(name);
     frame.Icon.Texture:SetTexture(GetItemIcon(id));
     frame.BidAmount:SetText("");
-    ajdkp.SetIconMouseover(frame, frame.item_link);
     frame:Show();
 end
 
@@ -289,6 +318,8 @@ function ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaini
             local x_offset = ((frame.auction_id % 5) - 2) * 200
             frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -100);
         end
+        -- set the hover tooltip
+        ajdkp.SetIconMouseover(frame);
 
         local player = ajdkp.StripRealm(UnitName("player"));
         frame.BidAmount:SetScript("OnTextChanged", function()
@@ -759,7 +790,6 @@ end
 -- TODO: recognize if there are two of the same item being auctioned and show just one window and give them to the two highest
 -- TODO: disable bidding on items the user can't equip
 -- TODO: normalize frame strata
--- TODO: add a tooltip showing who hasn't bid
 -- TODO: widen the ML frame slightly
 -- TODO: improve anchors/points so the frames are more easily modified
 -- TODO: consider a "to-be-distributed" list with "x"s and won auctions go there
@@ -767,6 +797,4 @@ end
 -- TODO: allow item comparisons by holding shift
 -- TODO: record the version numbers for GREET and WELCOME and add a command to show people on newer and older versions than the player
 -- TODO: Add a downgrade to os button (or an upgrade to MS depending on the current bid). message the bidder telling them their bid has been changed
--- TODO: fix the save/restore placement for ML frames
--- TODO: change the modulo rotation of default frame positions to 5 instead of 4 since that's the most any boss can drop
 -- TODO: make it clearer that OS covers PVP
