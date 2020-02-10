@@ -109,8 +109,21 @@ function ajdkp.ColorGradient(p)
     return 1- p, p, 0
 end
 
+function ajdkp.GetClassColor(character)
+    local class_index = select(3, UnitClass(player));
+    local r, g, b;
+    if class_index and class_index > 0 and class_index <= 12 then
+        r, g, b = unpack(ajdkp.CONSTANTS.CLASS_COLORS[class]);
+    else
+        -- show grey if it's not a known class. this should mostly happen if a user leaves the raid before sending a bid
+        -- or pass
+        r = 0.2; g = 0.2; b = 0.2;
+    end
+    return r, g, b
+end
+
 function ajdkp.ColorByClass(player)
-    local r, g, b = unpack(ajdkp.CONSTANTS.CLASS_COLORS[select(3, UnitClass(player))]);
+    local r, g, b = unpack(ajdkp.GetClassColor(player));
     local hex = string.format("%02x%02x%02x", r*255, g*255, b*255);
     return string.format("|cFF%s%s|r", hex, player);
 end
@@ -251,7 +264,7 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
                 row.spec:SetText(spec);
                 row.amt:SetText(amt);
                 row.bidder:SetText(bidder);
-                row.bidder:SetTextColor(unpack(ajdkp.CONSTANTS.CLASS_COLORS[select(3, UnitClass(bidder))]));
+                row.bidder:SetTextColor(unpack(ajdkp.GetClassColor(bidder)));
                 row.cancel:SetScript("OnClick", function() ajdkp.RejectBid(frame.auction_id, bidder) end);
                 row:Show();
             end
@@ -593,7 +606,6 @@ function ajdkp.CancelAuction(auction_id)
     auction.state = ajdkp.CONSTANTS.CANCELED;
     SendChatMessage(string.format("Auction canceled for %s", auction.item_link), "RAID");
     ajdkp.SendCancelAuction(auction_id);
---    ajdkp.HandleCancelAuction(auction_id);
 end
 
 --------------
