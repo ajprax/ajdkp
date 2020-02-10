@@ -178,6 +178,7 @@ function ajdkp.InitMLFrame(frame)
     local _, _, id, name = string.find(auction.item_link, ".*item:(%d+).-%[(.-)%]|h|r");
     frame.Title:SetText(name);
     frame.Icon.Texture:SetTexture(GetItemIcon(id));
+    frame.DeclareWinner:SetText("Declare Winner"); -- in case we're reusing an old frame that's showing the old winner
     frame:Show();
 end
 
@@ -500,7 +501,7 @@ function ajdkp.DeclareWinner(ml_frame, auction_id)
                 end
             end
             SOTA_Call_SubtractPlayerDKP(character, amt);
-            ml_frame.DeclareWinner:SetText(character .. "wins!");
+            ml_frame.DeclareWinner:SetText(character .. " wins!");
             ajdkp.GetCloseButton(ml_frame):SetScript("OnClick", function() ml_frame:Hide() end)
         end
     end
