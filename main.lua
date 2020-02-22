@@ -194,6 +194,7 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
         local name = string.format("MLFrame%d", id);
         -- instantiate the frame
         frame = CreateFrame("FRAME", name, UIParent, "MLFrameTemplate");
+        frame.id = id;
         frame.auction_id = auction_id;
         -- restore the saved position
         local saved_position = AJDKP_FRAME_POSITIONS[name];
@@ -202,8 +203,9 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
             frame:ClearAllPoints();
             frame:SetPoint(point, UIParent, relative_point, x, y);
         else
-            local x_offset = ((frame.auction_id % 5) - 2) * 300
-            frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -300);
+            local x_offset = (((frame.id - 1) % 5) - 2) * 300;
+            local y_offset = math.floor((frame.id - 1) / 5) * 200;
+            frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, y_offset);
         end
         -- set the hover tooltips
         ajdkp.SetIconMouseover(frame);
@@ -289,7 +291,18 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
         end);
         -- when the frame is no longer needed, send it back to the frame pool
         frame:SetScript("OnHide", function()
-            table.insert(AvailableMLFrames, frame); -- TODO: put it in sorted order
+            local insertion_index = 0;
+            for i,mlframe in ipairs(AvailableMLFrames) do
+                if frame.id > mlframe.id then
+                    insertion_index = i;
+                    break
+                end
+            end
+            if insertion_index == 0 then
+                table.insert(AvailableMLFrames, frame);
+            else
+                table.insert(AvailableMLFrames, insertion_index, frame);
+            end
         end);
     end
     ajdkp.InitMLFrame(frame);
@@ -318,6 +331,7 @@ function ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaini
         local name = string.format("BidFrame%d", id);
         -- instantiate the frame
         frame = CreateFrame("FRAME", name, UIParent, "BidFrameTemplate");
+        frame.id = id;
         frame.auction_id = auction_id;
         frame.item_link = item_link;
         frame.master_looter = master_looter;
@@ -329,8 +343,9 @@ function ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaini
             frame:ClearAllPoints();
             frame:SetPoint(point, UIParent, relative_point, x, y);
         else
-            local x_offset = ((frame.auction_id % 5) - 2) * 200
-            frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, -100);
+            local x_offset = (((frame.id - 1) % 5) - 2) * 200;
+            local y_offset = (math.floor((frame.id - 1) / 5) * 120) - 300;
+            frame:SetPoint("CENTER", UIParent, "CENTER", x_offset, y_offset);
         end
         -- set the hover tooltip
         ajdkp.SetIconMouseover(frame);
@@ -380,7 +395,18 @@ function ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaini
             frame.CurrentDKP:SetText(string.format("/ %d", ajdkp.GetDKP(player)));
         end);
         frame:SetScript("OnHide", function()
-            table.insert(AvailableBidFrames, frame); -- TODO: put it in sorted order
+            local insertion_index = 0;
+            for i,bidframe in ipairs(AvailableBidFrames) do
+                if frame.id > bidframe.id then
+                    insertion_index = i;
+                    break
+                end
+            end
+            if insertion_index == 0 then
+                table.insert(AvailableBidFrames, frame);
+            else
+                table.insert(AvailableBidFrames, insertion_index, frame);
+            end
         end);
     end
     ajdkp.InitBidFrame(frame);
