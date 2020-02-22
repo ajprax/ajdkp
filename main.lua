@@ -4,7 +4,7 @@ local _, ajdkp = ...
 AJDKP_FRAME_POSITIONS = {};
 
 ajdkp.CONSTANTS = {};
-ajdkp.CONSTANTS.VERSION = "0.1.5";
+ajdkp.CONSTANTS.VERSION = "0.1.8";
 
 ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
