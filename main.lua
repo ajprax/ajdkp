@@ -110,16 +110,16 @@ function ajdkp.ColorGradient(p)
 end
 
 function ajdkp.GetClassColor(character)
-    local class_index = select(3, UnitClass(player));
+    local class_index = select(3, UnitClass(character));
     local r, g, b;
     if class_index and class_index > 0 and class_index <= 12 then
-        r, g, b = unpack(ajdkp.CONSTANTS.CLASS_COLORS[class]);
+        r, g, b = unpack(ajdkp.CONSTANTS.CLASS_COLORS[class_index]);
     else
         -- show grey if it's not a known class. this should mostly happen if a user leaves the raid before sending a bid
         -- or pass
-        r = 0.2; g = 0.2; b = 0.2;
+        r = 0.5; g = 0.5; b = 0.5;
     end
-    return r, g, b
+    return {r, g, b}
 end
 
 function ajdkp.ColorByClass(player)
