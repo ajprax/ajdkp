@@ -424,6 +424,8 @@ end
 --   remaining_time: 123, -- number of seconds remaining in the auction (may include partial seconds, bidders see this number - 10)
 --   outstanding: {}, -- keys are character names, values are whether that character has bid or passed
 --   bids: {}, -- bids are (spec, amount, character) sorted
+--   winner: {character, amount}, -- only present if state == COMPLETE
+--   start_time: 123, -- wall clock time when the auction was started
 -- }
 ajdkp.AUCTIONS = {};
 
@@ -470,6 +472,7 @@ local function StartAuction(item_link)
         remaining_time=ajdkp.CONSTANTS.AUCTION_DURATION,
         outstanding=ajdkp.GetRaidMembers(),
         bids={},
+        start_time=date("%Y/%m/%d %H:%M:%S"),
     };
     ajdkp.AUCTIONS[auction_id] = auction;
     ajdkp.GetOrCreateMLFrame(auction_id);
@@ -526,6 +529,7 @@ function ajdkp.DeclareWinner(ml_frame, auction_id)
                     end
                 end
             end
+            ajdkp.AUCTIONS[auction_id].winner = {character, amt};
             SOTA_Call_SubtractPlayerDKP(character, amt);
             ml_frame.DeclareWinner:SetText(character .. " wins!");
             ajdkp.GetCloseButton(ml_frame):SetScript("OnClick", function() ml_frame:Hide() end)
@@ -818,10 +822,20 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
 end);
 
 
-SLASH_AJDKP1 = "/auction"
-SlashCmdList["AJDKP"] = function(msg)
+SLASH_AJDKP_AUCTION1 = "/auction";
+SlashCmdList["AJDKP_AUCTION"] = function(msg)
     for link in string.gmatch(msg, ".-|h|r") do
         StartAuction(link);
+    end
+end
+SLASH_AJDKP_WINNERS1 = "/winners";
+SlashCmdList["AJDKP_WINNERS"] = function(msg)
+    for i=1,NEXT_AUCTION_ID do
+        local auction = ajdkp.AUCTIONS[i];
+        if auction then
+            local winner, amt = unpack(auction.winner);
+            print(winner, "won", auction.item_link, "for", amt, "at", auction.start_time);
+        end
     end
 end
 
