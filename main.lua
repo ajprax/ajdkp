@@ -4,7 +4,7 @@ local _, ajdkp = ...
 AJDKP_FRAME_POSITIONS = {};
 
 ajdkp.CONSTANTS = {};
-ajdkp.CONSTANTS.VERSION = "0.1.9";
+ajdkp.CONSTANTS.VERSION = "0.1.10";
 
 ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
@@ -830,11 +830,10 @@ SlashCmdList["AJDKP_AUCTION"] = function(msg)
 end
 SLASH_AJDKP_WINNERS1 = "/winners";
 SlashCmdList["AJDKP_WINNERS"] = function(msg)
-    for i=1,NEXT_AUCTION_ID do
-        local auction = ajdkp.AUCTIONS[i];
-        if auction then
+    for _, auction in pairs(ajdkp.AUCTIONS) do
+        if auction.winner then
             local winner, amt = unpack(auction.winner);
-            print(winner, "won", auction.item_link, "for", amt, "at", auction.start_time);
+            print(winner, "won", auction.item_link, "for", amt, "at", date("%Y/%m/%d %H:%M:%S", auction.start_time));
         end
     end
 end
