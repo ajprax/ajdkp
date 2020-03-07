@@ -773,27 +773,27 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
     if prefix and string.upper(prefix) == "AJDKP" and event == "CHAT_MSG_ADDON" then
         local msg_type = message:sub(1, 2)
         if msg_type == ajdkp.CONSTANTS.START_AUCTION then
-            for auction_id, item_link in string.gmatch(message:sub(4), "(.+) (.+)") do
+            for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
                 ajdkp.HandleStartAuction(auction_id, item_link, sender);
             end
         elseif msg_type == ajdkp.CONSTANTS.RESUME_AUCTION then
-            for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(.+) (%d+) (.+)") do
+            for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
                 ajdkp.HandleResumeAuction(auction_id, item_link, sender, tonumber(remaining_time));
             end
         elseif msg_type == ajdkp.CONSTANTS.PLACE_BID then
-            for auction_id, spec, amt in string.gmatch(message:sub(4), "(.+) (%d) (%d+)") do
+            for auction_id, spec, amt in string.gmatch(message:sub(4), "(%d+) (%d) (%d+)") do
                 ajdkp.HandlePlaceBid(auction_id, tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
             end
         elseif msg_type == ajdkp.CONSTANTS.REJECT_BID then
-            local auction_id = tonumber(message:sub(4));
+            local auction_id = message:sub(4);
             ajdkp.HandleRejectBid(auction_id);
         elseif msg_type == ajdkp.CONSTANTS.CANCEL_AUCTION then
-            local auction_id = tonumber(message:sub(4));
+            local auction_id = message:sub(4);
             ajdkp.HandleCancelAuction(auction_id);
         elseif msg_type == ajdkp.CONSTANTS.CHECK_AUCTIONS then
             ajdkp.HandleCheckAuctions(sender);
         elseif msg_type == ajdkp.CONSTANTS.PASS then
-            local auction_id = tonumber(message:sub(4));
+            local auction_id = message:sub(4);
             ajdkp.HandlePass(auction_id, ajdkp.StripRealm(sender));
         elseif msg_type == ajdkp.CONSTANTS.CONFIRM_BID then
             for spec, amt, item_link in string.gmatch(message:sub(4), "(%d) (%d+) (.+)") do
