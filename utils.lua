@@ -116,3 +116,11 @@ function ajdkp.GenerateAuctionId()
         return string.format("%x", math.random(0, 0x9))
     end)
 end
+
+function ajdkp.PrintableSpec(spec)
+    if spec == 1 then
+        return "MS"
+    else
+        return "OS"
+    end
+end

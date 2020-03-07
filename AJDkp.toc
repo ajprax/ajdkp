@@ -1,5 +1,6 @@
 ## Interface: 11303
 ## Title: AjDKP
+## SavedVariables: AJDKP_HISTORICAL_AUCTIONS, AJDKP_ITEM_INDEX, AJDKP_PLAYER_INDEX
 ## SavedVariablesPerCharacter: AJDKP_FRAME_POSITIONS
 ## Author: AJPrax
 ## Version: 0.2.0
