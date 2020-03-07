@@ -109,3 +109,10 @@ function ajdkp.GetDKP(character)
     end
     return 0
 end
+
+-- generates 64 bit random ids
+function ajdkp.GenerateAuctionId()
+    return string.gsub("xxxxxxxxxxxxxxxx", "[x]", function ()
+        return string.format("%x", math.random(0, 0xf))
+    end)
+end

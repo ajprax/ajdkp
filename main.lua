@@ -4,7 +4,7 @@ local _, ajdkp = ...
 AJDKP_FRAME_POSITIONS = {};
 
 ajdkp.CONSTANTS = {};
-ajdkp.CONSTANTS.VERSION = "0.1.10";
+ajdkp.CONSTANTS.VERSION = "0.2.0";
 
 ajdkp.CONSTANTS.AUCTION_DURATION = 190; -- this is the real auction duration, but clients see the auction as ending 10 seconds early
 ajdkp.CONSTANTS.MINIMUM_BID = 10;
@@ -73,11 +73,10 @@ ajdkp.CONSTANTS.CLASS_COLORS = { -- CLASS_COLORS[select(3, UnitClass("name"))]
 -- GREET (08)
 --     sent by everyone in GUILD upon logging in
 --     includes addon version
---     triggers recipients to send back their addon version (eventually this will be used to verify everyone has the latest version) and next auction id (one higher than the highest one they've seen)
+--     triggers recipients to send back their addon version (eventually this will be used to verify everyone has the latest version)
 -- WELCOME (09)
 --     sent by everyone in WHISPER to sender of GREET
---     contains addon version and next auction id
---     triggers client to update NEXT_AUCTION_ID and eventually addon version will be used to verify everyone has the latest version
+--     contains addon version
 
 ajdkp.CONSTANTS.START_AUCTION = "00";
 ajdkp.CONSTANTS.RESUME_AUCTION = "01";
@@ -425,11 +424,10 @@ end
 --   outstanding: {}, -- keys are character names, values are whether that character has bid or passed
 --   bids: {}, -- bids are (spec, amount, character) sorted
 --   winner: {character, amount}, -- only present if state == COMPLETE
---   start_time: 123, -- wall clock time when the auction was started
+--   start_time: 123, -- utc seconds
 -- }
 ajdkp.AUCTIONS = {};
 
-local NEXT_AUCTION_ID = 1;
 
 -- returns nil if there's not a single winner
 function ajdkp.GetSingleWinner(rolls)
@@ -463,16 +461,14 @@ function ajdkp.RollUntilSingleWinner(bids)
 end
 
 local function StartAuction(item_link)
-    local auction_id = NEXT_AUCTION_ID;
-    NEXT_AUCTION_ID = NEXT_AUCTION_ID + 1;
-
+    local auction_id = ajdkp.GenerateAuctionId();
     local auction = {
         state=ajdkp.CONSTANTS.ACCEPTING_BIDS,
         item_link=item_link,
         remaining_time=ajdkp.CONSTANTS.AUCTION_DURATION,
         outstanding=ajdkp.GetRaidMembers(),
         bids={},
-        start_time=date("%Y/%m/%d %H:%M:%S"),
+        start_time=GetServerTime(),
     };
     ajdkp.AUCTIONS[auction_id] = auction;
     ajdkp.GetOrCreateMLFrame(auction_id);
@@ -503,7 +499,7 @@ function ajdkp.DeclareWinner(ml_frame, auction_id)
         if character then
             ajdkp.AUCTIONS[auction_id].state = ajdkp.CONSTANTS.COMPLETE;
             if tied_bids then
-                SendChatMessage(string.format("Top bid for %s was tied", auction.item_link));
+                SendChatMessage(string.format("Top bid for %s was tied", auction.item_link), "RAID");
                 -- if there was a tie, announce the rolls
                 for i=1,#tied_bids do
                     local _, _, character = unpack(tied_bids[i]);
@@ -644,30 +640,27 @@ end
 --------------
 
 function ajdkp.SendStartAuction(auction_id, item_link)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d %s", ajdkp.CONSTANTS.START_AUCTION, auction_id, item_link), "RAID");
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %s %s", ajdkp.CONSTANTS.START_AUCTION, auction_id, item_link), "RAID");
 end
 
 function ajdkp.HandleStartAuction(auction_id, item_link, master_looter)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
     ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, ajdkp.CONSTANTS.AUCTION_DURATION - 10);
 end
 
 function ajdkp.SendResumeAuction(auction_id, item_link, remaining_time, target)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d %d %s", ajdkp.CONSTANTS.RESUME_AUCTION, auction_id, remaining_time, item_link), "WHISPER", target);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %s %d %s", ajdkp.CONSTANTS.RESUME_AUCTION, auction_id, remaining_time, item_link), "WHISPER", target);
 end
 
 function ajdkp.HandleResumeAuction(auction_id, item_link, master_looter, remaining_time)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     ajdkp.GetOrCreateBidFrame(auction_id, item_link, master_looter, remaining_time);
 end
 
 function ajdkp.SendPlaceBid(auction_id, spec, amt, master_looter)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d %d %d", ajdkp.CONSTANTS.PLACE_BID, auction_id, spec, amt), "WHISPER", master_looter);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %s %d %d", ajdkp.CONSTANTS.PLACE_BID, auction_id, spec, amt), "WHISPER", master_looter);
 end
 
 function ajdkp.HandlePlaceBid(auction_id, spec, amt, character)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     local auction = ajdkp.AUCTIONS[auction_id];
     if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
         ajdkp.InsertNewBid(auction.bids, {spec, amt, character});
@@ -680,20 +673,18 @@ function ajdkp.HandlePlaceBid(auction_id, spec, amt, character)
 end
 
 function ajdkp.SendRejectBid(auction_id, target)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d", ajdkp.CONSTANTS.REJECT_BID, auction_id), "WHISPER", target);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %s", ajdkp.CONSTANTS.REJECT_BID, auction_id), "WHISPER", target);
 end
 
 function ajdkp.HandleRejectBid(auction_id)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     print("your bid was rejected by the master looter");
 end
 
 function ajdkp.SendCancelAuction(auction_id)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d", ajdkp.CONSTANTS.CANCEL_AUCTION, auction_id), "RAID");
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %s", ajdkp.CONSTANTS.CANCEL_AUCTION, auction_id), "RAID");
 end
 
 function ajdkp.HandleCancelAuction(auction_id)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     for i=1,nextBidFrame do
         local frame = _G[string.format("BidFrame%d", i)];
         if frame and (frame.auction_id == auction_id) then
@@ -713,10 +704,9 @@ function ajdkp.SendCheckAuctions()
 end
 
 function ajdkp.HandleCheckAuctions(target)
-    for auction_id=1,NEXT_AUCTION_ID do
-        local auction = ajdkp.AUCTIONS[auction_id];
+    for _, auction in pairs(ajdkp.AUCTIONS) do
         -- only send ResumeAuction if the user hasn't already bid
-        if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS and ajdkp.Contains(auction.outstanding, ajdkp.StripRealm(target)) then
+        if auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS and ajdkp.Contains(auction.outstanding, ajdkp.StripRealm(target)) then
             -- bidders see a 10 second shorter auction than the ML to avoid the ML closing the auction when someone can still see it
             ajdkp.SendResumeAuction(auction_id, auction.item_link, auction.remaining_time - 10, target);
         end
@@ -724,11 +714,10 @@ function ajdkp.HandleCheckAuctions(target)
 end
 
 function ajdkp.SendPass(auction_id, master_looter)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d", ajdkp.CONSTANTS.PASS, auction_id), "WHISPER", master_looter);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %s", ajdkp.CONSTANTS.PASS, auction_id), "WHISPER", master_looter);
 end
 
 function ajdkp.HandlePass(auction_id, character)
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, auction_id + 1);
     local auction = ajdkp.AUCTIONS[auction_id];
     if auction and auction.state == ajdkp.CONSTANTS.ACCEPTING_BIDS then
         ajdkp.Remove(auction.outstanding, character);
@@ -761,12 +750,11 @@ function ajdkp.HandleGreet(target, version)
 end
 
 function ajdkp.SendWelcome(target)
-    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %d %s", ajdkp.CONSTANTS.WELCOME, NEXT_AUCTION_ID, ajdkp.CONSTANTS.VERSION), "WHISPER", target);
+    C_ChatInfo.SendAddonMessage("AJDKP", string.format("%s %s", ajdkp.CONSTANTS.WELCOME, ajdkp.CONSTANTS.VERSION), "WHISPER", target);
 end
 
-function ajdkp.HandleWelcome(next_auciton_id, version)
+function ajdkp.HandleWelcome(version)
     -- version is ignored for now
-    NEXT_AUCTION_ID = math.max(NEXT_AUCTION_ID, next_auciton_id);
 end
 
 
@@ -785,16 +773,16 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
     if prefix and string.upper(prefix) == "AJDKP" and event == "CHAT_MSG_ADDON" then
         local msg_type = message:sub(1, 2)
         if msg_type == ajdkp.CONSTANTS.START_AUCTION then
-            for auction_id, item_link in string.gmatch(message:sub(4), "(%d+) (.+)") do
-                ajdkp.HandleStartAuction(tonumber(auction_id), item_link, sender);
+            for auction_id, item_link in string.gmatch(message:sub(4), "(.+) (.+)") do
+                ajdkp.HandleStartAuction(auction_id, item_link, sender);
             end
         elseif msg_type == ajdkp.CONSTANTS.RESUME_AUCTION then
-            for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(%d+) (%d+) (.+)") do
-                ajdkp.HandleResumeAuction(tonumber(auction_id), item_link, sender, tonumber(remaining_time));
+            for auction_id, remaining_time, item_link in string.gmatch(message:sub(4), "(.+) (%d+) (.+)") do
+                ajdkp.HandleResumeAuction(auction_id, item_link, sender, tonumber(remaining_time));
             end
         elseif msg_type == ajdkp.CONSTANTS.PLACE_BID then
-            for auction_id, spec, amt in string.gmatch(message:sub(4), "(%d+) (%d) (%d+)") do
-                ajdkp.HandlePlaceBid(tonumber(auction_id), tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
+            for auction_id, spec, amt in string.gmatch(message:sub(4), "(.+) (%d) (%d+)") do
+                ajdkp.HandlePlaceBid(auction_id, tonumber(spec), tonumber(amt), ajdkp.StripRealm(sender));
             end
         elseif msg_type == ajdkp.CONSTANTS.REJECT_BID then
             local auction_id = tonumber(message:sub(4));
@@ -814,9 +802,7 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
         elseif msg_type == ajdkp.CONSTANTS.GREET then
             ajdkp.HandleGreet(sender, message:sub(4));
         elseif msg_type == ajdkp.CONSTANTS.WELCOME then
-            for next_auction_id, version in string.gmatch(message:sub(4), "(%d) (.*)") do
-                ajdkp.HandleWelcome(tonumber(next_auction_id), version);
-            end
+            ajdkp.HandleWelcome(message:sub(4));
         end
     end
 end);

@@ -2,7 +2,7 @@
 ## Title: AjDKP
 ## SavedVariablesPerCharacter: AJDKP_FRAME_POSITIONS
 ## Author: AJPrax
-## Version: 0.1.10
+## Version: 0.2.0
 
 gui.xml
 utils.lua
