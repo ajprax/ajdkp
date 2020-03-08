@@ -118,7 +118,7 @@ function ajdkp.GenerateAuctionId()
 end
 
 function ajdkp.PrintableSpec(spec)
-    if spec == 1 then
+    if tonumber(spec) == 1 then
         return "MS"
     else
         return "OS"

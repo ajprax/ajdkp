@@ -77,6 +77,14 @@ ajdkp.CONSTANTS.CLASS_COLORS = { -- CLASS_COLORS[select(3, UnitClass("name"))]
 -- WELCOME (09)
 --     sent by everyone in WHISPER to sender of GREET
 --     contains addon version
+-- ADD_AUCTION_HISTORY_ITEM (10)
+--     sent by the master looter in GUILD when an auction is complete or by anyone in WHISPER to synchronize clients
+--     contains auction_id, item_link, winner, spec, amount (winner spec and amount may be nil)
+--     triggers the addition of the item to the local auction history if it's not already present
+-- RECONCILE_HISTORY (11)
+--     sent by anybody in GUILD when logging in or in WHISPER in response to another RECONCILE_HISTORY message
+--     contains a hash of auction ids from the history, optionally contains a min ts and a max ts defining the period to reconcile
+--     triggers the recipient to either send historical auction details or more granular RECONCILE_HISTORY messages
 
 ajdkp.CONSTANTS.START_AUCTION = "00";
 ajdkp.CONSTANTS.RESUME_AUCTION = "01";
@@ -88,6 +96,8 @@ ajdkp.CONSTANTS.PASS = "06";
 ajdkp.CONSTANTS.CONFIRM_BID = "07";
 ajdkp.CONSTANTS.GREET = "08";
 ajdkp.CONSTANTS.WELCOME = "09";
+ajdkp.CONSTANTS.ADD_AUCTION_HISTORY_ITEM = "10";
+ajdkp.CONSTANTS.RECONCILE_HISTORY = "11";
 
 ------------
 -- FRAMES --
@@ -260,13 +270,9 @@ function ajdkp.GetOrCreateMLFrame(auction_id)
             frame:SetHeight(88 + 15 * math.max(3, #ajdkp.AUCTIONS[frame.auction_id].bids));
             -- set and show bid rows
             for i, bid in ipairs(ajdkp.AUCTIONS[frame.auction_id].bids) do
-                local coeff, amt, bidder = unpack(bid);
-                local spec = "MS"
-                if coeff == 2 then
-                    spec = "OS"
-                end
+                local spec, amt, bidder = unpack(bid);
                 local row = GetOrCreateBidRow(i);
-                row.spec:SetText(spec);
+                row.spec:SetText(ajdkp.PrintableSpec(spec));
                 row.amt:SetText(amt);
                 row.bidder:SetText(bidder);
                 row.bidder:SetTextColor(unpack(ajdkp.GetClassColor(bidder)));
@@ -431,90 +437,6 @@ end
 -- }
 ajdkp.AUCTIONS = {};
 
--- saved variable
--- list of tables containing {
---   auction_id,
---   item_link,
---   start_time, -- utc seconds
---   winner, -- nil if auction was closed without bids
---   spec, -- nil if auction was closed without bids
---   amount, -- nil if auction was closed without bids
--- }
--- auctions are added here when they are marked complete or canceled after everyone passed, or when logging in and requesting auction updates
--- auctions canceled with bids or waiting for bids do not get added here
-AJDKP_HISTORICAL_AUCTIONS = {};
--- saved variable
--- lookup table from item id to indices in AJDKP_HISTORICAL_AUCTIONS for that item
-AJDKP_ITEM_INDEX = {};
--- saved variable
--- lookup table from character name to indices in AJDKP_HISTORICAL_AUCTIONS that character won
-AJDKP_PLAYER_INDEX = {};
-
-function ajdkp.AddHistoricalAuction(auction_id, item_link, start_time, winner, amount, spec)
-    table.insert(AJDKP_HISTORICAL_AUCTIONS, {
-        auction_id=auction_id,
-        item_link=item_link,
-        start_time=start_time,
-        winner=winner,
-        amount=amount,
-        spec=spec,
-    });
-    local index = #AJDKP_HISTORICAL_AUCTIONS;
-
-    local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
-    if AJDKP_ITEM_INDEX[id] then
-        table.insert(AJDKP_ITEM_INDEX[id], index);
-    else
-        AJDKP_ITEM_INDEX[id] = {index};
-    end
-    if winner then
-        if AJDKP_PLAYER_INDEX[winner] then
-            table.insert(AJDKP_PLAYER_INDEX[winner], index);
-        else
-            AJDKP_PLAYER_INDEX[winner] = {index};
-        end
-    end
-end
-
-function ajdkp.PrintHistoryEntry(i)
-    local auction = AJDKP_HISTORICAL_AUCTIONS[i];
-    if auction.winner then
-        print(string.format("%s: %s won %s for %d (%s)", date("%Y/%m/%d %H:%M:%S", auction.start_time), auction.winner, auction.item_link, auction.amount, ajdkp.PrintableSpec(auction.spec)));
-    else
-        print(string.format("%s: auction for %s ended with no bids", date("%Y/%m/%d %H:%M:%S", auction.start_time), auction.item_link));
-    end
-end
-
-function ajdkp.PrintItemHistory(id)
-    local indices = AJDKP_ITEM_INDEX[id];
-    if indices then
-        for _, i in ipairs(indices) do
-            ajdkp.PrintHistoryEntry(i);
-        end
-    else
-        print("No auction history for", item_link);
-    end
-end
-
-function ajdkp.PrintCharacterHistory(character)
-    local indices = AJDKP_PLAYER_INDEX[character];
-    if indices then
-        for _, i in ipairs(indices) do
-            ajdkp.PrintHistoryEntry(i);
-        end
-    else
-        print("No auction history for", character);
-    end
-end
-
-function ajdkp.PrintRecentHistory(n)
-    if #AJDKP_HISTORICAL_AUCTIONS ~= 0 then
-        for i=math.max(1, #AJDKP_HISTORICAL_AUCTIONS - n + 1), #AJDKP_HISTORICAL_AUCTIONS do
-            ajdkp.PrintHistoryEntry(i);
-        end
-    end
-end
-
 -- returns nil if there's not a single winner
 function ajdkp.GetSingleWinner(rolls)
     local max = 0;
@@ -577,11 +499,6 @@ function ajdkp.DeclareWinner(ml_frame, auction_id)
         local spec, amt, character = unpack(winning_bid);
         -- the final price can never be less than 10
         amt = math.max(amt, 10);
-        if spec == ajdkp.CONSTANTS.MS then
-            spec = "MS"
-        elseif spec == ajdkp.CONSTANTS.OS then
-            spec = "OS"
-        end
         if character then
             auction.state = ajdkp.CONSTANTS.COMPLETE;
             if tied_bids then
@@ -593,7 +510,7 @@ function ajdkp.DeclareWinner(ml_frame, auction_id)
                     SendChatMessage(string.format("Tiebreak Roll - %d by %s", roll, character), "RAID");
                 end
             end
-            SendChatMessage(string.format("%s wins %s for %d dkp (%s)", character, auction.item_link, amt, spec), "RAID_WARNING");
+            SendChatMessage(string.format("%s wins %s for %d dkp (%s)", character, auction.item_link, amt, ajdkp.PrintableSpec(spec)), "RAID_WARNING");
             -- go through all open auctions and make sure the winner of this auction hasn't bid more than their new dkp
             -- if they have, lower their bid to their new dkp (we presume they'd still be willing to bid that much since
             -- it's less than they've previously said they were willing to pay)
@@ -611,7 +528,7 @@ function ajdkp.DeclareWinner(ml_frame, auction_id)
                     end
                 end
             end
-            ajdkp.AddHistoricalAuction(auction.item_link, auction.start_time, character, amt);
+            ajdkp.BroadcastAddAuctionHistoryItem(auction_id, auction.item_link, auction.start_time, character, amt, spec)
             SOTA_Call_SubtractPlayerDKP(character, amt);
             ml_frame.DeclareWinner:SetText(character .. " wins!");
             ajdkp.GetCloseButton(ml_frame):SetScript("OnClick", function()
@@ -725,7 +642,7 @@ function ajdkp.CancelAuction(auction_id)
     ajdkp.AUCTIONS[auction_id] = nil;
     -- if everyone passed, add this to historical auctions with no winner, otherwise just ignore it since it may be restarted
     if #auction.outstanding == 0 and #auction.bids == 0 then
-        ajdkp.AddHistoricalAuction(auction.item_link, auction.start_time);
+        ajdkp.BroadcastAddAuctionHistoryItem(auction_id, auction.item_link, auction.start_time)
     end
 end
 
@@ -826,12 +743,7 @@ function ajdkp.SendConfirmBid(spec, amt, item_link, bidder)
 end
 
 function ajdkp.HandleConfirmBid(spec, amt, item_link)
-    if spec == ajdkp.CONSTANTS.MS then
-        spec = "MS"
-    elseif spec == ajdkp.CONSTANTS.OS then
-        spec = "OS"
-    end
-    print(string.format("Your bid (%d %s) for %s was received", amt, spec, item_link));
+    print(string.format("Your bid (%d %s) for %s was received", amt, ajdkp.PrintableSpec(spec), item_link));
 end
 
 function ajdkp.SendGreet()
@@ -851,6 +763,239 @@ function ajdkp.HandleWelcome(version)
     -- version is ignored for now
 end
 
+function ajdkp.BroadcastAddAuctionHistoryItem(auction_id, item_link, start_time, winner, amount, spec)
+    local msg;
+    if winner then
+        msg = string.format("%s %s %s %d %s %d %d", ajdkp.CONSTANTS.ADD_AUCTION_HISTORY_ITEM, auction_id, item_link, start_time, winner, amount, spec);
+    else
+        msg = string.format("%s %s %s %d", ajdkp.CONSTANTS.ADD_AUCTION_HISTORY_ITEM, auction_id, item_link, start_time);
+    end
+    C_ChatInfo.SendAddonMessage("AJDKP", msg, "GUILD");
+end
+
+function ajdkp.SendAddAuctionHistoryItem(target, auction_id, item_link, start_time, winner, amount, spec)
+    local msg;
+    if winner then
+        msg = string.format("%s %s %s %d %s %d %d", ajdkp.CONSTANTS.ADD_AUCTION_HISTORY_ITEM, auction_id, item_link, start_time, winner, amount, spec);
+    else
+        msg = string.format("%s %s %s %d", ajdkp.CONSTANTS.ADD_AUCTION_HISTORY_ITEM, auction_id, item_link, start_time);
+    end
+    C_ChatInfo.SendAddonMessage("AJDKP", msg, "WHISPER", target)
+end
+
+function ajdkp.HandleAddAuctionHistoryItem(auction_id, item_link, start_time, winner, amount, spec)
+    ajdkp.AddHistoricalAuction(auction_id, item_link, start_time, winner, amount, spec);
+end
+
+function ajdkp.SendReconcileHistory(ts_range, target)
+    local hash = ajdkp.HashHistoricalAuctions(ts_range);
+    local msg;
+    if ts_range then
+        local min, max = unpack(ts_range);
+        msg = string.format("%s %s %d %d", ajdkp.CONSTANTS.RECONCILE_HISTORY, hash, min, max);
+    else
+        msg = string.format("%s %s", ajdkp.CONSTANTS.RECONCILE_HISTORY, hash);
+    end
+
+    if target then
+        C_ChatInfo.SendAddonMessage("AJDKP", msg, "WHISPER", target);
+    else
+        C_ChatInfo.SendAddonMessage("AJDKP", msg, "GUILD");
+    end
+end
+
+function ajdkp.HandleReconcileHistory(sender, their_hash, ts_range)
+    local my_hash = ajdkp.HashHistoricalAuctions(ts_range);
+    if my_hash ~= their_hash then
+        if ts_range ~= nil then
+            local min, max = unpack(ts_range);
+            for _, auction in pairs(AJDKP_HISTORICAL_AUCTIONS) do
+                if min <= auction.start_time and auction.start_time <= max then
+                    ajdkp.SendAddAuctionHistoryItem(sender, auction.auction_id, auction.item_link, auction.start_time, auction.winner, auction.amount, auction.spec);
+                end
+            end
+            -- wait 3 seconds to allow our auctions to be added to their history, then send a ReconcileHistory message to see if they have anything we don't have
+            C_Timer.After(3, function()
+                ajdkp.SendReconcileHistory(ts_range, sender);
+            end);
+        else
+            for _, period in pairs(ajdkp.GetHistoricalTimePeriods()) do
+                ajdkp.SendReconcileHistory(period, sender);
+            end
+        end
+    end
+end
+
+-- saved variable
+-- list of tables containing {
+--   auction_id,
+--   item_link,
+--   start_time, -- utc seconds
+--   winner, -- nil if auction was closed without bids
+--   spec, -- nil if auction was closed without bids
+--   amount, -- nil if auction was closed without bids
+-- }
+-- auctions are added here when they are marked complete or canceled after everyone passed, or when logging in and requesting auction updates
+-- auctions canceled with bids or waiting for bids do not get added here
+AJDKP_HISTORICAL_AUCTIONS = {};
+-- saved variable
+-- lookup table from item id to indices in AJDKP_HISTORICAL_AUCTIONS for that item
+AJDKP_ITEM_INDEX = {};
+-- saved variable
+-- lookup table from character name to indices in AJDKP_HISTORICAL_AUCTIONS that character won
+AJDKP_PLAYER_INDEX = {};
+-- saved variable
+-- Set of historical auction ids to avoid inserting duplicates
+AJDKP_HISTORICAL_AUCTION_IDS = {};
+
+function ajdkp.AddHistoricalAuction(auction_id, item_link, start_time, winner, amount, spec)
+    if not AJDKP_HISTORICAL_AUCTION_IDS[auction_id] then
+        local new_auction = {
+            auction_id=auction_id,
+            item_link=item_link,
+            start_time=start_time,
+            winner=winner,
+            amount=amount,
+            spec=spec,
+        };
+
+        -- search backwards for the insertion point, mostly we'll be adding at or very near the end of the list
+        local index = 1;
+        -- TODO: use binary search to make this more efficient. we should mostly be adding to the end so it's not too important
+        for i=#AJDKP_HISTORICAL_AUCTIONS,1,-1 do
+            if AJDKP_HISTORICAL_AUCTIONS[i].start_time < start_time then
+                index = i + 1;
+                break
+            end
+        end
+        table.insert(AJDKP_HISTORICAL_AUCTIONS, index, new_auction);
+
+        -- if the newly added auction is not the most recent one, indices for newer auctions need to be shifted up by one
+        if index ~= #AJDKP_HISTORICAL_AUCTIONS then
+            for _, indices in pairs(AJDKP_ITEM_INDEX) do
+                for k, v in ipairs(indices) do
+                    if v >= index then
+                        indices[k] = v + 1;
+                    end
+                end
+            end
+            for _, indices in pairs(AJDKP_PLAYER_INDEX) do
+                for k, v in ipairs(indices) do
+                    if v >= index then
+                        indices[k] = v + 1;
+                    end
+                end
+            end
+        end
+
+        local _, _, id, name = string.find(item_link, ".*item:(%d+).-%[(.-)%]|h|r");
+        if AJDKP_ITEM_INDEX[id] then
+            table.insert(AJDKP_ITEM_INDEX[id], index);
+            table.sort(AJDKP_ITEM_INDEX[id]);
+        else
+            AJDKP_ITEM_INDEX[id] = {index};
+        end
+        if winner then
+            if AJDKP_PLAYER_INDEX[winner] then
+                table.insert(AJDKP_PLAYER_INDEX[winner], index);
+                table.sort(AJDKP_PLAYER_INDEX[winner]);
+            else
+                AJDKP_PLAYER_INDEX[winner] = {index};
+            end
+        end
+        AJDKP_HISTORICAL_AUCTION_IDS[auction_id] = true;
+    end
+end
+
+function ajdkp.PrintHistoryEntry(i)
+    local auction = AJDKP_HISTORICAL_AUCTIONS[i];
+    if auction.winner then
+        print(string.format("%s: %s won %s for %d (%s)", date("%Y/%m/%d %H:%M:%S", auction.start_time), auction.winner, auction.item_link, auction.amount, ajdkp.PrintableSpec(auction.spec)));
+    else
+        print(string.format("%s: auction for %s ended with no bids", date("%Y/%m/%d %H:%M:%S", auction.start_time), auction.item_link));
+    end
+end
+
+function ajdkp.PrintItemHistory(id)
+    local indices = AJDKP_ITEM_INDEX[id];
+    if indices then
+        for _, i in ipairs(indices) do
+            ajdkp.PrintHistoryEntry(i);
+        end
+    else
+        print("No auction history for", item_link);
+    end
+end
+
+function ajdkp.PrintCharacterHistory(character)
+    local indices = AJDKP_PLAYER_INDEX[character];
+    if indices then
+        for _, i in ipairs(indices) do
+            ajdkp.PrintHistoryEntry(i);
+        end
+    else
+        print("No auction history for", character);
+    end
+end
+
+function ajdkp.PrintRecentHistory(n)
+    if #AJDKP_HISTORICAL_AUCTIONS == 0 then
+        print("No auction history");
+    else
+        for i=math.max(1, #AJDKP_HISTORICAL_AUCTIONS - n + 1), #AJDKP_HISTORICAL_AUCTIONS do
+            ajdkp.PrintHistoryEntry(i);
+        end
+    end
+end
+
+function ajdkp.Hash(value)
+    local text = tostring(value);
+    local counter = 1
+    local len = string.len(text)
+    for i = 1, len, 3 do
+        counter = math.fmod(counter*8161, 4294967279) +  -- 2^32 - 17: Prime!
+                (string.byte(text,i)*16776193) +
+                ((string.byte(text,i+1) or (len-i+256))*8372226) +
+                ((string.byte(text,i+2) or (len-i+256))*3932164)
+    end
+    return math.fmod(counter, 4294967291) -- 2^32 - 5: Prime (and different from the prime in the loop)
+end
+
+function ajdkp.HashHistoricalAuctions(ts_range)
+    local h = "0"
+    if ts_range then
+        local min, max = unpack(ts_range);
+        local min, max = tonumber(min), tonumber(max);
+        for _, auction in pairs(AJDKP_HISTORICAL_AUCTIONS) do
+            if min <= auction.start_time and auction.start_time <= max then
+                h = ajdkp.Hash(h..auction.auction_id)
+            end
+        end
+    else
+        for _, auction in pairs(AJDKP_HISTORICAL_AUCTIONS) do
+            h = ajdkp.Hash(h..auction.auction_id);
+        end
+    end
+    return h
+end
+
+function ajdkp.GetHistoricalTimePeriods()
+    -- break the history up into week long segments
+    if #AJDKP_HISTORICAL_AUCTIONS == 0 then
+        return {}
+    end
+
+    local len = 604800;
+    local oldest = AJDKP_HISTORICAL_AUCTIONS[1].start_time;
+    local newest = AJDKP_HISTORICAL_AUCTIONS[#AJDKP_HISTORICAL_AUCTIONS].start_time;
+    local periods = {};
+    local min, max = newest - len, newest;
+    while oldest - len <= min do
+        table.insert(periods, {min, max});
+        min, max = min - len, min;
+    end
+    return periods
+end
 
 -- Frame used to receive addon messages
 local EVENT_FRAME = CreateFrame("FRAME", nil, UIParent);
@@ -861,6 +1006,7 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
         ajdkp.SendCheckAuctions();
         ajdkp.SendGreet();
+        ajdkp.SendReconcileHistory(); -- initiate a history reconciliation with everyone online
         return
     end
     local prefix, message, distribution, sender = ...;
@@ -897,6 +1043,23 @@ EVENT_FRAME:SetScript("OnEvent", function(self, event, ...)
             ajdkp.HandleGreet(sender, message:sub(4));
         elseif msg_type == ajdkp.CONSTANTS.WELCOME then
             ajdkp.HandleWelcome(message:sub(4));
+        elseif msg_type == ajdkp.CONSTANTS.ADD_AUCTION_HISTORY_ITEM then
+            for auction_id, item_link, start_time, winner, amount, spec in string.gmatch(message:sub(4), "(%d+) (.+) (%d+) (.+) (%d+) (%d)") do
+                ajdkp.HandleAddAuctionHistoryItem(auction_id, item_link, tonumber(start_time), winner, tonumber(amount), tonumber(spec));
+                return
+            end
+            for auction_id, item_link, start_time in string.gmatch(message:sub(4), "(%d+) (.+) (%d+)") do
+                ajdkp.HandleAddAuctionHistoryItem(auction_id, item_link, tonumber(start_time));
+            end
+        elseif msg_type == ajdkp.CONSTANTS.RECONCILE_HISTORY then
+            if UnitName("player") ~= ajdkp.StripRealm(sender) then
+                for hash, min, max in string.gmatch(message:sub(4), "(%d+) (%d+) (%d+)") do
+                    ajdkp.HandleReconcileHistory(sender, tonumber(hash), {tonumber(min), tonumber(max)});
+                    return
+                end
+                local hash = message:sub(4);
+                ajdkp.HandleReconcileHistory(sender, tonumber(hash));
+            end
         end
     end
 end);
@@ -904,35 +1067,33 @@ end);
 SLASH_AJDKP1 = "/ajdkp";
 SlashCmdList["AJDKP"] = function(msg)
     local msg = msg:gsub("^%s*(.-)%s*$", "%1");
-    -- show the history for an item
-    -- /ajdkp history [item]
-    -- show the history for a character
-    -- /ajdkp history <character>
-    -- show the most recent n history items (default 10)
-    -- /ajdkp history <n>
-    -- TODO: add a history command for the a time period like /ajdkp history 2:00 for the last 2 hours
-
+    -- show the most recent 10 history items
     if msg == "history" then
         ajdkp.PrintRecentHistory(10);
         return
     end
+    -- show the history for an item
+    -- /ajdkp history [item]
     local _, _, id = string.find(msg, "history%s+.-item:(%d+).-%[.-%]|h|r");
     if id then
         ajdkp.PrintItemHistory(id);
         return
     end
+    -- show the most recent n history items
+    -- /ajdkp history <n>
     local _, _, n = string.find(msg, "history%s+(%d+)");
     if n then
         ajdkp.PrintRecentHistory(tonumber(n));
         return
     end
+    -- show the history for a character
+    -- /ajdkp history <character>
     local _, _, character = string.find(msg, "history%s+(.+)");
     if character then
         ajdkp.PrintCharacterHistory(character);
         return
     end
-
-    -- start an auction if no subcommand is detected
+    -- start one or more auctions
     for link in string.gmatch(msg, ".-|h|r") do
         StartAuction(link);
     end
@@ -948,5 +1109,5 @@ end
 -- TODO: record the version numbers for GREET and WELCOME and add a command to show people on newer and older versions than the player
 -- TODO: Add a downgrade to os button (or an upgrade to MS depending on the current bid). message the bidder telling them their bid has been changed
 -- TODO: make it clearer that OS covers PVP
--- TODO: on load, message guild asking for any auctions newer than the newest one in the local history table, other clients search backwards until they pass that time and send the relevant information over. information is merged into local history table
 -- TODO: if the only people who haven't bid are offline, allow completing the auction
+-- TODO: add a history command for the a time period like /ajdkp history 2:00 for the last 2 hours
